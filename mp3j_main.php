@@ -344,7 +344,8 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
         $tracks = wp_cache_get($cid);
         $tracks = $tracks ? $tracks : (object) array('data' => array());
         $cache_key = $feedV;
-        if (isset($_GET['mp3_jplayer_cache_clear']) && !isset($tracks->data[$cache_key])) {
+        // Add oportunity to clear cache by setting $_GET flag 'mp3_jplayer_cache_clear'
+        if (isset($_GET['mp3_jplayer_cache_clear']) || !isset($tracks->data[$cache_key])) {
           $tracks->data[$cache_key] = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
           if (empty($tracks->data[$cache_key])) {
             $tracks->data[$cache_key] = array();
