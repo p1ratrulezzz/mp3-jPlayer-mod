@@ -105,6 +105,51 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $this->LibraryI;
 	}
 
+  /**
+   * Parses remote Apache index page for mp3 files
+   * @param $scheme
+   *  A protocol, like http, https (now only http)
+   * @param $folder
+   *  A url of a directory with mp3 files.
+   * @return array|bool
+   *  Returns an array of tracks and false in case of errors or if couldn't find any mp3s.
+   */
+  public function grab_remote_folder_mp3s($scheme, $folder) {
+    static $permited_exts = array(
+      'mp3' => TRUE,
+    );
+
+    $url = strtolower($scheme) . '://' . trim($folder, '/');
+    $content = file_get_contents($url);
+    if (!$content) {
+      return false;
+    }
+
+    // We need a querypath library to easily parse html.
+    // @link http://querypath.org/about.html
+    require_once dirname(__FILE__). '/include/querypath/src/qp.php';
+    $qp = htmlqp($content);
+    $tds = $qp->find('table:eq(0) tr>td:eq(2)')->slice(1);
+    $tracks = array();
+    foreach ($tds as $td) {
+      if (($track_path = $td->find('a[href]')->attr('href')) && ($ext = pathinfo($track_path, PATHINFO_EXTENSION)) && isset($permited_exts[$ext])) {
+        $track_path = $url . '/' . $track_path;
+        $tracks[] = urldecode($track_path);
+      }
+    }
+
+    $items = &$tracks;
+    if ( ($c = count($items)) > 0 ) {
+      natcasesort($items);
+      if ( $this->folder_order != "asc" ) {
+        $items = array_reverse($items, true);
+      }
+    }
+    $this->dbug['str'] .= "\nRead folder - Done, " . $c . "mp3(s) from ". urldecode($url);
+
+    return !empty($tracks) ? $tracks : false;
+  }
+
 /*	Reads mp3's from a local 
 	directory, returns array of uri's */			
 	function grab_local_folder_mp3s( $folder ) {
@@ -249,9 +294,10 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 /*	Adds any FEEDs into K's/V's */
 	function collect_delete_feeds( $values, $keys ){
 		foreach ( $values as $i => $val ) {  
-			if ( preg_match( "!^FEED:(DF|ID|LIB|/.*)$!i", $val ) == 1 ) { // keep ID for backwards compat
+			if (preg_match( "!^FEED\:(HTTP\|.+|DF|ID|LIB|/.*)$!i", $val ) == 1 ) { // keep ID for backwards compat
 				$feedV = stristr( $val, ":" );
-				$feedV = str_replace( ":", "", $feedV );
+				$feedV = str_replace( ":",
+          "", $feedV );
 				$feedK = ( !empty($keys[$i]) ) ? $keys[$i] : "";
 				$fed = $this->get_feed( $feedK, $feedV ); // gets the FEED tracks
 				foreach ( $fed['Vs'] as $j => $v ) {
@@ -291,7 +337,28 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 			if ( $feedV == "DF" ) { 
 				$feedV = $this->theSettings['mp3_dir'];
 			}
-			$tracks = $this->grab_local_folder_mp3s( $feedV ); 
+
+      // Check if we have a remote address
+      if (($ruins = explode('|', $feedV)) && strtoupper(reset($ruins)) == 'HTTP' && isset($ruins[1])) {
+        $cid = 'mp3-jplayer';
+        $tracks = wp_cache_get($cid);
+        $tracks = $tracks ? $tracks : (object) array('data' => array());
+        $cache_key = $feedV;
+        if (isset($_GET['mp3_jplayer_cache_clear']) && !isset($tracks->data[$cache_key])) {
+          $tracks->data[$cache_key] = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
+          if (empty($tracks->data[$cache_key])) {
+            $tracks->data[$cache_key] = array();
+          }
+
+          wp_cache_set($cid, $tracks, '', strtotime('+3 hours') - time());
+        }
+
+        $tracks = $tracks->data[$cache_key];
+      }
+      else {
+			  $tracks = $this->grab_local_folder_mp3s( $feedV );
+      }
+
 			if ( $tracks !== true && $tracks !== false && count($tracks) > 0 ) {
 				foreach ( $tracks as $j => $x ) {
 					$Vs[] = $x;
