@@ -119,33 +119,55 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
       'mp3' => TRUE,
     );
 
+    // Build correct url.
     $url = strtolower($scheme) . '://' . trim($folder, '/');
-    $content = file_get_contents($url);
+
+    // Set fixed timeouts in order to prevent long page loadings.
+    $http_context = stream_context_create(array('http'=>
+      array(
+        'timeout' => 12, // Set 12 seconds timeout @fixme: This should go to admin settings
+      )
+    ));
+
+    // Try loading out content
+    $content = @file_get_contents($url, FALSE, $http_context); // Prevent errors. Warning might happen if timeout exceeds
     if (!$content) {
       return false;
     }
 
-    // We need a querypath library to easily parse html.
-    // @link http://querypath.org/about.html
-    require_once dirname(__FILE__). '/include/querypath/src/qp.php';
-    $qp = htmlqp($content);
-    $tds = $qp->find('table:eq(0) tr>td:eq(2)')->slice(1);
+    $dom = new DOMDocument('1.0', 'UTF-8');
+    libxml_use_internal_errors(false);
+    $dom->loadHTML($content);
+    libxml_use_internal_errors(true);
+
+    $trs = $dom->getElementsByTagName('table')
+      ->item(0)
+      ->getElementsByTagName('tr');
+
     $tracks = array();
-    foreach ($tds as $td) {
-      if (($track_path = $td->find('a[href]')->attr('href')) && ($ext = pathinfo($track_path, PATHINFO_EXTENSION)) && isset($permited_exts[$ext])) {
-        $track_path = $url . '/' . $track_path;
-        $tracks[] = urldecode($track_path);
+    foreach ($trs as $tr) {
+      if (($tds = $tr->getElementsByTagName('td')) && $tds->length>= 1 && ($anchors = $tds->item(1)->getElementsByTagName('a')) && $anchors->length > 0) {
+        $track_path = $anchors->item(0)->getAttribute('href');
+        if ($track_path && ($ext = pathinfo($track_path, PATHINFO_EXTENSION)) && isset($permited_exts[$ext])) {
+          $track_path = $url . '/' . $track_path;
+          $tracks[] = urldecode($track_path);
+        }
       }
     }
 
-    $items = &$tracks;
-    if ( ($c = count($items)) > 0 ) {
-      natcasesort($items);
+    // Sort naturally.
+    if ( ($c = count($tracks)) > 0 ) {
+      natcasesort($tracks);
       if ( $this->folder_order != "asc" ) {
-        $items = array_reverse($items, true);
+        $tracks = array_reverse($tracks, true);
       }
     }
     $this->dbug['str'] .= "\nRead folder - Done, " . $c . "mp3(s) from ". urldecode($url);
+
+    // Some cleanings
+    unset($dom);
+    unset($http_context);
+    $content = null;
 
     return !empty($tracks) ? $tracks : false;
   }
@@ -293,6 +315,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 
 /*	Adds any FEEDs into K's/V's */
 	function collect_delete_feeds( $values, $keys ){
+    $Vs = $Ks  = array(); // Let's initialize this as empty arrays in order to prevent any warning further
 		foreach ( $values as $i => $val ) {  
 			if (preg_match( "!^FEED\:(HTTP\|.+|DF|ID|LIB|/.*)$!i", $val ) == 1 ) { // keep ID for backwards compat
 				$feedV = stristr( $val, ":" );
@@ -340,21 +363,22 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 
       // Check if we have a remote address
       if (($ruins = explode('|', $feedV)) && strtoupper(reset($ruins)) == 'HTTP' && isset($ruins[1])) {
-        $cid = 'mp3-jplayer';
-        $tracks = wp_cache_get($cid);
-        $tracks = $tracks ? $tracks : (object) array('data' => array());
-        $cache_key = $feedV;
-        // Add oportunity to clear cache by setting $_GET flag 'mp3_jplayer_cache_clear'
-        if (isset($_GET['mp3_jplayer_cache_clear']) || !isset($tracks->data[$cache_key])) {
-          $tracks->data[$cache_key] = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
-          if (empty($tracks->data[$cache_key])) {
-            $tracks->data[$cache_key] = array();
+        $cid = 'mp3-jplayer:' . $feedV;
+        // Provide ability to rebuild cache via $_GET parameters
+        $tracks = isset($_GET['mp3_jplayer_cache_clear']) ? FALSE : wp_cache_get($cid);
+        $tracks = $tracks ? $tracks : (object) array('expire' => strtotime('+3 hours') - time());
+        if (!isset($tracks->data)) {
+          $tracks->data = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
+          if (empty($tracks->data)) {
+            $tracks->data = array();
+            // Lower expiration time for empty sets just to protect from often requests.
+            $tracks->expire = strtotime('+3 minutes') - time();
           }
 
-          wp_cache_set($cid, $tracks, '', strtotime('+3 hours') - time());
+          wp_cache_set($cid, $tracks, '', $tracks->expire);
         }
 
-        $tracks = $tracks->data[$cache_key];
+        $tracks = $tracks->data;
       }
       else {
 			  $tracks = $this->grab_local_folder_mp3s( $feedV );
