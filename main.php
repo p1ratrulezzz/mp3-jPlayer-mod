@@ -423,7 +423,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		      $track_path = $anchors->item(0)->getAttribute('href');
 		      $_info = pathinfo($track_path);
 		      $ext = $_info['extension'];
-		      if ($track_path &&  && isset($permited_exts[$ext])) {
+		      if ($track_path && isset($permited_exts[$ext])) {
 		        $track_path = $url . '/' . $track_path;
 		        $track_path_decoded = urldecode($track_path);
 		        $tracks[] = array(
