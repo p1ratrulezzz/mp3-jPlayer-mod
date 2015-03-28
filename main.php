@@ -432,7 +432,9 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		        	'link' => $track_link,
 		        	'caption' => $_info['filename'],
 		        	'title' => $_info['filename'],
-		        	'src' => $track_link,
+		        	'src' => $scheme . '|' . $folder,
+		        	'filename' => $_info['basename'],
+		        	'counterpath' => $track_link,
 		        );
 		      }
 		    }
