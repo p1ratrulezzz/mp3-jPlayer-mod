@@ -421,16 +421,18 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		  foreach ($trs as $tr) {
 		    if (($tds = $tr->getElementsByTagName('td')) && $tds->length>= 1 && ($anchors = $tds->item(1)->getElementsByTagName('a')) && $anchors->length > 0) {
 		      $track_path = $anchors->item(0)->getAttribute('href');
-		      $_info = pathinfo($track_path);
+		      $track_path_decoded = urldecode($track_path);
+		      $_info = pathinfo($track_path_decoded);
 		      $ext = $_info['extension'];
 		      if ($track_path && isset($permited_exts[$ext])) {
-		        $track_path = $url . '/' . $track_path;
-		        $track_path_decoded = urldecode($track_path);
+		        $track_link = $url . '/' . $track_path;
+		        $track_link_decoded = urldecode($track_link);
+		        
 		        $tracks[] = array(
-		        	'link' => $track_path_decoded,
-		        	'caption' => basename($track_path_decoded),
+		        	'link' => $track_link,
+		        	'caption' => $_info['filename'],
 		        	'title' => $_info['filename'],
-		        	'src' => $scheme. $folder,
+		        	'src' => $track_link,
 		        );
 		      }
 		    }
