@@ -427,6 +427,8 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		        $tracks[] = array(
 		        	'link' => $track_path_decoded,
 		        	'caption' => basename($track_path_decoded),
+		        	'title' => basename($track_path_decoded),
+		        	'src' => $track_path_decoded,
 		        );
 		      }
 		    }
