@@ -977,11 +977,12 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		        // @link https://wordpress.org/plugins/w3-total-cache/ @endlink
 		        $is_flush_needed = false;
 		        foreach (array(
-		        	'w3tc_flush_all',
-		        	'w3tc_flush_objectcache',
-		         	'mp3_jplayer_cache_clear',
-		        ) as $param) {
-			        if (!empty($_GET[$param])) {
+		        	'w3tc_flush_all' => true,
+		        	'w3tc_flush_objectcache' => true,
+		         	'mp3_jplayer_cache_clear' => true,
+		         	'w3tc_note' => 'flush_all'
+		        ) as $param => $value) {
+			        if (!empty($_GET[$param]) && ($value === true || $value == $_GET[$param])) {
 			        	$is_flush_needed = true;
 			        	break;
 			        }
