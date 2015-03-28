@@ -117,6 +117,9 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
   public function grab_remote_folder_mp3s($scheme, $folder) {
     static $permited_exts = array(
       'mp3' => TRUE,
+      'ogg' => TRUE,
+      'aac' => TRUE,
+      'm4a' => TRUE,
     );
 
     // Build correct url.
@@ -317,7 +320,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 	function collect_delete_feeds( $values, $keys ){
     $Vs = $Ks  = array(); // Let's initialize this as empty arrays in order to prevent any warning further
 		foreach ( $values as $i => $val ) {  
-			if (preg_match( "!^FEED\:(HTTP\|.+|DF|ID|LIB|/.*)$!i", $val ) == 1 ) { // keep ID for backwards compat
+			if (preg_match( "!^FEED\:(HTTPS?\|.+|DF|ID|LIB|/.*)$!i", $val ) == 1 ) { // keep ID for backwards compat
 				$feedV = stristr( $val, ":" );
 				$feedV = str_replace( ":",
           "", $feedV );
@@ -362,10 +365,10 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 			}
 
       // Check if we have a remote address
-      if (($ruins = explode('|', $feedV)) && strtoupper(reset($ruins)) == 'HTTP' && isset($ruins[1])) {
-        $cid = 'mp3-jplayer:' . $feedV;
+      if (($ruins = explode('|', $feedV)) && ($scheme = strtoupper(reset($ruins))) && ($scheme == 'HTTP' || $scheme == 'HTTPS') && isset($ruins[1])) {
+        $cid = substr(md5('mp3-jplayer:' . $feedV), 0, 16);
         // Provide ability to rebuild cache via $_GET parameters
-        $tracks = isset($_GET['mp3_jplayer_cache_clear']) ? FALSE : wp_cache_get($cid);
+        $tracks = !empty($_GET['mp3_jplayer_cache_clear']) ? FALSE : wp_cache_get($cid);
         $tracks = $tracks ? $tracks : (object) array('expire' => strtotime('+3 hours') - time());
         if (!isset($tracks->data)) {
           $tracks->data = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
