@@ -809,7 +809,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$TRACKS = array();
 		foreach ( $tracks as $t )
 		{	
-			if ( preg_match( "!^FEED:(DF|ID|LIB|/.*)$!i", $t['src'] ) == 1 ) { // keep ID for backwards compat
+			if ( preg_match( "!^FEED\:(HTTPS?\|.+|DF|ID|LIB|/.*)$!i", $t['src'] ) == 1 ) { // keep ID for backwards compat
 				$t['src'] = stristr( $t['src'], ":" );
 				$t['src'] = str_replace( ":", "", $t['src'] );
 				$feedTracks = $this->getFeed( $t );
@@ -897,6 +897,38 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 				}
 			}
 		}
+		// Check if we have a remote address
+	        else if (($ruins = explode('|', $track['src'])) && ($scheme = strtoupper(reset($ruins))) && ($scheme == 'HTTP' || $scheme == 'HTTPS') && isset($ruins[1])) {
+	          $cid = substr(md5('mp3-jplayer:' . $track['src']), 0, 16);
+	          // Provide ability to rebuild cache via $_GET parameters and support of w3 total cache
+	          // @link https://wordpress.org/plugins/w3-total-cache/ @endlink
+	          $is_flush_needed = false;
+	          foreach (array(
+	          		'w3tc_flush_all',
+	          		'w3tc_flush_objectcache',
+	          		'mp3_jplayer_cache_clear',
+	          	) as $param) {
+	          	if (!empty($_GET[$param])) {
+	          		$is_flush_needed = true;
+	          		break;
+	          	}
+	          }
+	          
+	          // Try fetching cached tracks
+	          $_tracks = $is_flush_needed ? FALSE : wp_cache_get($cid);
+	          $_tracks = $_tracks ? $_tracks : (object) array('expire' => strtotime('+3 hours') - time());
+	          if (!isset($_tracks->data)) {
+	            $_tracks->data = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
+	            if (empty($_tracks->data)) {
+	              $_tracks->data = array();
+	              // Lower expiration time for empty sets just to protect from often requests.
+	              $_tracks->expire = strtotime('+3 minutes') - time();
+	            }
+	            wp_cache_set($cid, $_tracks, '', $_tracks->expire);
+	          }
+	          $TRACKS = $_tracks->data;
+	          $_tracks = null; // kill the reference
+	        }
 		else
 		{
 			$folder = ( $track['src'] == "DF" ) ? $this->theSettings['mp3_dir'] : $track['src'];
