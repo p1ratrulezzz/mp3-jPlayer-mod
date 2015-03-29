@@ -438,7 +438,8 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		        	'formats' => array(
 		        		0 => $_info['extension'], // @fixme: Not always extension if format! Should be mappings
 		        	),
-		        	'image' => 'https://blog.p1ratrulezzz.com/wp-content/uploads/2013/11/y8jSfaf5qa81-300x300.jpg',
+		        	'image' => '', // @fixme: support of main image
+		        	'imgurl' => 'https://blog.p1ratrulezzz.com/wp-content/uploads/2013/11/y8jSfaf5qa81-300x300.jpg',
 		        );
 		      }
 		    }
