@@ -381,6 +381,83 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 	}
 
 
+	/**
+	 * Parses remote Apache index page for mp3 files
+	 * @param $scheme
+	 *  A protocol, like http, https (now only http)
+	 * @param $folder
+	 *  A url of a directory with mp3 files.
+	 * @return array|bool
+	 *  Returns an array of tracks and false in case of errors or if couldn't find any mp3s.
+	 */
+	 public function grab_remote_folder_mp3s($scheme, $folder) {
+	 	static $permited_exts = array(
+		    'mp3' => TRUE,
+		    'ogg' => TRUE,
+		    'aac' => TRUE,
+		    'm4a' => TRUE,
+		  );
+		  // Build correct url.
+		  $url = strtolower($scheme) . '://' . trim($folder, '/');
+		  // Set fixed timeouts in order to prevent long page loadings.
+		  $http_context = stream_context_create(array('http'=>
+		    array(
+		      'timeout' => 12, // Set 12 seconds timeout @fixme: This should go to admin settings
+		    )
+		  ));
+		  // Try loading out content
+		  $content = @file_get_contents($url, FALSE, $http_context); // Prevent errors. Warning might happen if timeout exceeds
+		  if (!$content) {
+		    return false;
+		  }
+		  $dom = new DOMDocument('1.0', 'UTF-8');
+		  libxml_use_internal_errors(false);
+		  $dom->loadHTML($content);
+		  libxml_use_internal_errors(true);
+		  $trs = $dom->getElementsByTagName('table')
+		    ->item(0)
+		    ->getElementsByTagName('tr');
+		  $tracks = array();
+		  foreach ($trs as $tr) {
+		    if (($tds = $tr->getElementsByTagName('td')) && $tds->length>= 1 && ($anchors = $tds->item(1)->getElementsByTagName('a')) && $anchors->length > 0) {
+		      $track_path = $anchors->item(0)->getAttribute('href');
+		      $track_path_decoded = urldecode($track_path);
+		      $_info = pathinfo($track_path_decoded);
+		      $ext = $_info['extension'];
+		      if ($track_path && isset($permited_exts[$ext])) {
+		        $track_link = $url . '/' . $track_path;
+		        $track_link_decoded = urldecode($track_link);
+		        
+		        $tracks[] = array(
+		        	'link' => $track_link,
+		        	'caption' => $_info['filename'],
+		        	'title' => $_info['filename'],
+		        	'src' => $track_link,
+		        	'filename' => $_info['basename'],
+		        	'counterpath' => $track_link,
+		        	'formats' => array(
+		        		0 => $_info['extension'], // @fixme: Not always extension if format! Should be mappings
+		        	),
+		        	'image' => '', // @fixme: support of main image
+		        );
+		      }
+		    }
+		  }
+		  // Sort naturally.
+		  if ( ($c = count($tracks)) > 0 ) {
+		  	// @fixme: Implement natural sort
+		    /*natcasesort($tracks);
+		    if ( $this->folder_order != "asc" ) {
+		      $tracks = array_reverse($tracks, true);
+		    }*/
+		  }
+		  $this->dbug['str'] .= "\nRead folder - Done, " . $c . "mp3(s) from ". urldecode($url);
+		  // Some cleanings
+		  unset($dom);
+		  unset($http_context);
+		  $content = null;
+		  return !empty($tracks) ? $tracks : false;
+	}
 //###############		
 	function grabFolderURLs( $folder, $extensions = "" )
 	{
@@ -815,7 +892,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$TRACKS = array();
 		foreach ( $tracks as $t )
 		{	
-			if ( preg_match( "!^FEED:(DF|ID|LIB|/.*)$!i", $t['src'] ) == 1 ) { // keep ID for backwards compat
+			if ( preg_match( "!^FEED\:(HTTPS?\|.+|DF|ID|LIB|/.*)$!i", $t['src'] ) == 1 ) { // keep ID for backwards compat
 				$t['src'] = stristr( $t['src'], ":" );
 				$t['src'] = str_replace( ":", "", $t['src'] );
 				$feedTracks = $this->getFeed( $t );
@@ -903,6 +980,39 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 				}
 			}
 		}
+		// Check if we have a remote address
+	        else if (($ruins = explode('|', $track['src'])) && ($scheme = strtoupper(reset($ruins))) && ($scheme == 'HTTP' || $scheme == 'HTTPS') && isset($ruins[1])) {
+		        $cid = substr(md5('mp3-jplayer:' . $track['src']), 0, 16);
+		        // Provide ability to rebuild cache via $_GET parameters and support of w3 total cache
+		        // @link https://wordpress.org/plugins/w3-total-cache/ @endlink
+		        $is_flush_needed = false;
+		        foreach (array(
+		        	'w3tc_flush_all' => true,
+		        	'w3tc_flush_objectcache' => true,
+		         	'mp3_jplayer_cache_clear' => true,
+		         	'w3tc_note' => 'flush_all'
+		        ) as $param => $value) {
+			        if (!empty($_GET[$param]) && ($value === true || $value == $_GET[$param])) {
+			        	$is_flush_needed = true;
+			        	break;
+			        }
+		        }
+		          
+		        // Try fetching cached tracks
+		        $_tracks = $is_flush_needed ? FALSE : wp_cache_get($cid);
+		        $_tracks = $_tracks ? $_tracks : (object) array('expire' => strtotime('+3 hours') - time());
+		        if (!isset($_tracks->data)) {
+		          $_tracks->data = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
+		          if (empty($_tracks->data)) {
+		            $_tracks->data = array();
+		            // Lower expiration time for empty sets just to protect from often requests.
+		            $_tracks->expire = strtotime('+3 minutes') - time();
+		          }
+		          wp_cache_set($cid, $_tracks, '', $_tracks->expire);
+		        }
+		        $TRACKS = $_tracks->data;
+		        $_tracks = null; // kill the reference
+	        }
 		else
 		{
 			$folder = ( $track['src'] == "DF" ) ? $this->theSettings['mp3_dir'] : $track['src'];
