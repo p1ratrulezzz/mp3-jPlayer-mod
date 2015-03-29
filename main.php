@@ -408,7 +408,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 	 *  Returns an array of tracks and false in case of errors or if couldn't find any mp3s.
 	 */
 	 public function grab_remote_folder_mp3s($scheme, $folder) {
-	 	  $permited_exts = $this->theSettings['audioFormats'];
+	 	  $permited_exts = $this->getAudioFormats();
 		  // Build correct url.
 		  $url = strtolower($scheme) . '://' . trim($folder, '/');
 		  // Set fixed timeouts in order to prevent long page loadings.
