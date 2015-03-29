@@ -379,6 +379,23 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		}	
 		return ( empty($URLs) ? false : $URLs );
 	}
+	
+	/**
+	 * Gets list of permitted formats
+	 * @return array
+	 * 	an array or supported formats
+	 */
+	public static function getAudioformats() {
+		return array(
+			'mp3'  => 'true',
+			'mp4'  => 'true',
+			'ogg'  => 'false',
+			'wav'  => 'false',
+			'webm' => 'false',
+			'aac' => 'true',
+			'm4a' => 'true',
+		);
+	}
 
 
 	/**
@@ -391,7 +408,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 	 *  Returns an array of tracks and false in case of errors or if couldn't find any mp3s.
 	 */
 	 public function grab_remote_folder_mp3s($scheme, $folder) {
-	 	$permited_exts = $this->theSettings['audioFormats'];
+	 	  $permited_exts = $this->theSettings['audioFormats'];
 		  // Build correct url.
 		  $url = strtolower($scheme) . '://' . trim($folder, '/');
 		  // Set fixed timeouts in order to prevent long page loadings.
@@ -1602,15 +1619,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 			'adminSizer_h' 		=> '320px'
 		);
 		
-		$audioFormats = array(
-			'mp3'  => 'true',
-			'mp4'  => 'true',
-			'ogg'  => 'false',
-			'wav'  => 'false',
-			'webm' => 'false',
-			'aac' => 'true',
-			'm4a' => 'true',
-		);
+		$audioFormats = $this->getAudioFormats();
 		
 		$mp3FoxAdminOptions = array( // defaults
 			'initial_vol' => '100',
