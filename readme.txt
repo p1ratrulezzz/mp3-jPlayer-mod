@@ -1,5 +1,7 @@
 === MP3-jPlayer Mod ===
 
+Go and check working example on my wordpress blog: http://p1rat.ru/lezzz/HLeim
+
 This is the modificated version of wordpress plugin called MP3-jPlayer https://wordpress.org/plugins/mp3-jplayer/
 written by Simon Ward. 
 Changes:
@@ -8,6 +10,7 @@ There is a little instruction from me (it is easier than it looks like):
 Let's say that http://wp.example.com - is your wordpress site. It is hosted on cheap hosting and 
 doesn't have much space to place music files there. And let's say that http://library.example.com - is your Home computer or server which is always 
 powered on and have 3TB of free space to host music files! 
+
 
 1. On your domain register service (GoDaddy for example) you should edit DNS Zone file (GoDaddy and others provide super easy UI for that!)
 You need to create DNS record of type "A" with theese settings
