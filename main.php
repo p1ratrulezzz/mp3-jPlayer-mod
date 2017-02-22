@@ -355,8 +355,8 @@ class MP3j_Main	{
 		return array(
 			'mp3'  => 'true',
 			'mp4'  => 'true',
-			'ogg'  => 'false',
-			'wav'  => 'false',
+			'ogg'  => 'true',
+			'wav'  => 'true',
 			'webm' => 'false',
 			'aac' => 'true',
 			'm4a' => 'true',

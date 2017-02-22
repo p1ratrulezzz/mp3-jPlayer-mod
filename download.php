@@ -82,11 +82,13 @@ if ( isset($_GET['mp3']) ) {
 	{
 
 		// Decide the mime type
-		$fileExtension = $matches[0];
+		$fileExtension = strtolower($matches[0]);
 		if ( $fileExtension === 'mp3' || $fileExtension === 'mp4' || $fileExtension === 'm4a' ) {
 			$mimeType = 'audio/mpeg';
 		} elseif( $fileExtension === 'ogg' || $fileExtension === 'oga' ) {
 			$mimeType = 'audio/ogg';
+		} elseif ( $fileExtension == 'wav' || $fileExtension == 'wave' )  {
+			$mimeType = 'audio/vnd.wave';
 		} else {
 			$mimeType = 'audio/' . ( str_replace('.', '', $fileExtension) );
 		}
@@ -111,7 +113,7 @@ if ( isset($_GET['mp3']) ) {
 			curl_close( $ch );
 			fclose( $fp );
 
-			header('Content-Type: text/plain');//  . $mimeType);
+			header('Content-Type: ' . $mimeType);
 			$cookiename = 'mp3Download' . $playerID;
 			setcookie($cookiename, "true", 0, '/');
 			header('Accept-Ranges: bytes');  // download resume
