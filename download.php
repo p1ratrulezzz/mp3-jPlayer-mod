@@ -98,6 +98,32 @@ if ( isset($_GET['mp3']) ) {
 			set_time_limit(2 * 60 * 60); // Limit with 2 hours to be sure that we will wait our file to be downloaded
 			$destination =  tempnam(sys_get_temp_dir(), 'mp3jpl');
 			$fp = fopen ($destination, 'w+');
+			$ch = curl_init();
+			curl_setopt( $ch, CURLOPT_URL, $sent );
+			curl_setopt( $ch, CURLOPT_BINARYTRANSFER, true );
+			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, false );
+			curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false );
+			curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 12 );
+			curl_setopt( $ch, CURLOPT_FILE, $fp );
+			curl_exec( $ch );
+			curl_close( $ch );
+			fclose( $fp );
+
+			header('Content-Type: text/plain');//  . $mimeType);
+			$cookiename = 'mp3Download' . $playerID;
+			setcookie($cookiename, "true", 0, '/');
+			header('Accept-Ranges: bytes');  // download resume
+			header('Content-Disposition: attachment; filename=' . $file);
+			header('Content-Length: ' . @filesize($destination));
+			readfile($destination);
+			$dbug .= '#problemremote';
+			// @fixme: /Ugly fix
+		}
+		elseif (strpos($sent, $rooturl. '/music-proxy/') !== false) { // if used proxy
+			// @fixme: Ugly fix
+			set_time_limit(2 * 60 * 60); // Limit with 2 hours to be sure that we will wait our file to be downloaded
+			$destination =  tempnam(sys_get_temp_dir(), 'mp3jpl');
+			$fp = fopen ($destination, 'w+');
   			$ch = curl_init();
   			curl_setopt( $ch, CURLOPT_URL, $sent );
   			curl_setopt( $ch, CURLOPT_BINARYTRANSFER, true );
