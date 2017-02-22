@@ -1,3 +1,50 @@
+=== MP3-jPlayer Mod ===
+
+Go and check working example on my wordpress blog: http://p1rat.ru/lezzz/HLeim
+
+This is the modificated version of wordpress plugin called MP3-jPlayer https://wordpress.org/plugins/mp3-jplayer/
+written by Simon Ward. 
+Changes:
++ Apache Index Playlists: makes you an ability to create dynamic playlists from files listed by apache. How to do it?
+There is a little instruction from me (it is easier than it looks like):
+Let's say that http://wp.example.com - is your wordpress site. It is hosted on cheap hosting and 
+doesn't have much space to place music files there. And let's say that http://library.example.com - is your Home computer or server which is always 
+powered on and have 3TB of free space to host music files! 
+
+
+1. On your domain register service (GoDaddy for example) you should edit DNS Zone file (GoDaddy and others provide super easy UI for that!)
+You need to create DNS record of type "A" with theese settings
+host     type   value
+library  A      <your_music_server_ip_address>
+
+<your_music_server_ip_address> - is your music server's IP address (should be external). 
+ 
+What we get? We have just made that if we open our browser and write http://library.example.com we will reach our music server actually!
+But there is no we page yet, let's create it!
+ 
+2. You need is to install Apache 2.x on your home server and create a directory access for it
+# Create virtual host in httpd.conf
+<VirtualHost *:80>
+  ServerName library.example.com # Domain should be replaces with your domain
+  ServerAlias www.library.example.com # This is optional
+  DocumentRoot "c:/My Music/" # This is root folder for our host
+  <Directory "c:/My Music/"> # A path to your music folder
+    Options +Indexes # this is REQUIRED to list files!!!
+    Require all granted ## On apache 2.4
+    # Allow from all ## This should be uncommented for apache 2.2 and above string should be commented
+  </Directory>
+</VirtualHost>
+
+Now restart Apache and open http://library.example.com in your browser and you will see you music files!
+3. Now go on your wordpress site and install modified plugin from releases page
+4. Create new Post and write there shortcode for mp3-jplayer
+
+[mp3-jplayer tracks="FEED:HTTP|library.example.com/some_mp3_folder" list="y" title="My album"]
+
+And save the Post.
+
+5. Well done! Your should now see player with your music files in this post.
+
 === MP3-jPlayer ===
 Author URI: http://sjward.org
 Plugin URI: http://mp3-jplayer.com
