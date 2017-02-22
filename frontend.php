@@ -1,42 +1,110 @@
 <?php
-if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Front extends MP3j_Main {
+
+class MP3j_Front extends MP3j_Main
+{
+
+	//~~
+	function addPrimaryHooks ()
+	{
+		add_action( 'plugins_loaded', array( $this, 'loadTranslation' ) );
+		add_action( 'init', array( $this, 'onInit' ), 100 );
+		add_action( 'widgets_init',  array( $this, 'registerWidgets' ) );
+		
+		if ( is_admin() ) {
+			add_action( 'admin_menu', array( $this, 'createAdminPages' ), 100 );
+			add_action( 'deactivate_mp3-jplayer/mp3jplayer.php', array( $this, 'deactivate' ) );
+		}
+		
+		add_action( 'wp_head', array( $this, 'header_scripts_handler' ), 2 );	
+		add_action( 'wp_footer', array( $this, 'checkAddScripts' ), 1 ); 		// Final chance to enqueue, process this action early (priority < 20).
+		add_action( 'wp_footer', array( $this, 'footercode_handler' ), 200 ); 	// Inline js, after enqueues. Keep at 200! Add-ons may go either side.
+		
+		add_filter( 'get_the_excerpt', array( $this, 'get_excerpt_handler' ), 1 );
+		add_filter( 'the_content', array( $this, 'afterExcerpt' ), 9999 );
+		
+		if ( $this->theSettings['make_player_from_link'] == "true" ) {
+			add_filter('the_content', array( $this, 'replace_links' ), 1);
+		}
+		
+		if ( $this->theSettings['run_shcode_in_excerpt'] == "true" ) {
+			add_filter( 'the_excerpt', 'shortcode_unautop' );
+			add_filter( 'the_excerpt', 'do_shortcode' );
+		}		
+	}
 	
-/*	Called on deactivation, deletes settings if 'remember' option unticked. */
-	function uninitFox()
-	{ 
-		$theOptions = get_option($this->adminOptionsName);
-		if ( $theOptions['remember_settings'] == "false" ) {
-			delete_option($this->adminOptionsName);
+	
+	//~~
+	function registerShortcodes ()
+	{
+		$ops = $this->theSettings;
+		add_shortcode( 'mp3t', array( $this, 'inline_play_handler' ) );
+		add_shortcode( 'mp3j', array( $this, 'inline_play_graphic' ) );
+		add_shortcode( 'mp3-jplayer', array( $this, 'primary_player' ) );
+		add_shortcode( 'mp3-popout', array( $this, 'popout_link_player' ) );
+		
+		remove_shortcode( 'popout' );
+		add_shortcode( 'popout', array( $this, 'popout_link_player' ) );
+		
+		if ( $ops['replace_WP_playlist'] === 'true' && ! is_admin() ) {
+			remove_shortcode( 'playlist' );
+			add_shortcode( 'playlist', array( $this, 'replacePlaylistShortcode' ) );
+		}
+		
+		if ( ! is_admin() && ( $ops['replace_WP_audio'] === 'true' || $ops['replace_WP_embedded'] === 'true' || $ops['replace_WP_attached'] === 'true' ) )	{
+			remove_shortcode( 'audio' );
+			add_shortcode( 'audio', array( $this, 'replaceAudioShortcode' ) );
 		}
 	}
-
-
-/** Flags for scripts via template tag mp3j_addscripts() */
-	function scripts_tag_handler( $style = "" )
+	
+	
+	//~~
+	function registerTagCallbacks ()
 	{
-		// Since 1.7 - convert old option name to new
-		if ( $style == "styleA" || $style == "styleE" ) {	$style = "styleF"; }
-		if ( $style == "styleB" ) { $style = "styleG"; }
-		if ( $style == "styleC" ) { $style = "styleH"; }
-		if ( $style == "styleD" ) { $style = "styleI"; }
-		
-		$this->stylesheet = ( $style == "" ) ? $this->theSettings['player_theme'] : $style;
-		$this->scriptsflag = "true"; 
-		return;
-	}
-
-
-/**	Returns library via template tag mp3j_grab_library(). */
-	function grablibrary_handler( $x )
-	{
-		return $this->grab_library_info( $x );
+		add_action( 'mp3j_addscripts', array( $this, 'scripts_tag_handler' ), 1, 1 );
+		add_action( 'mp3j_put', array( $this, 'template_tag_handler' ), 10, 1 );
+		add_action( 'mp3j_debug', array( $this, 'debug_info' ), 10, 1 );
+		add_filter( 'mp3j_grab_library', array( $this, 'grablibrary_handler' ), 10, 1 );
+		add_action( 'mp3j_settings', array( $this, 'mp3j_settings' ), 1, 1 );
 	}
 	
 	
+	//~~
+	function loadTranslation () {
+		$path = basename( dirname( __FILE__ ) ) . '/lang/';
+		load_plugin_textdomain( 'mp3-jplayer', false, $path );
+	}
 	
 	
-	function mp3j_settings ( $devsettings = array() )
-	{
+	//~~
+	function onInit () {
+		$this->SKINS = $this->getSkinData();
+		if ( is_admin() ) {
+			add_action( 'wp_ajax_ax_mjp_liblist', 'ax_mjp_liblist' );
+		}
+	}
+	
+	
+	//~~
+	function deactivate () { 
+		$O = get_option( MP3J_SETTINGS_NAME );
+		if ( $O['remember_settings'] == "false" ) {
+			delete_option( MP3J_SETTINGS_NAME );
+		}
+	}
+	
+	
+	//~~
+	function addPluginListLink( $links, $file ) { 
+		if ( $file == 'mp3-jplayer/mp3jplayer.php' ) {
+			$settings_link = '<a href="admin.php?page=mp3-jplayer">'.__('Settings').'</a>';
+			array_unshift( $links, $settings_link );
+		}
+		return $links;
+	}
+	
+	
+	//~~
+	function mp3j_settings ( $devsettings = array() ) {
 		foreach ( $this->setup as $k => $v ) {
 			if ( array_key_exists( $k, $devsettings ) ) {
 				$this->setup[ $k ] = $devsettings[ $k ];
@@ -45,67 +113,128 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 	}
 	
 	
+	//~~
+	function registerWidgets () {
+		register_widget( 'MP3_jPlayer' );
+		register_widget( 'MP3j_single' );
+	}
 	
-/**	
-*	Provides support for WP versions below 3.3 that can't late enqueue. Labourious
-*	checking of active widgets, and loose checking post content for shortcodes and extensions
-*	so as to avoid unecessary script addition.
-*/
-	function header_scripts_handler()
-	{
-		$scripts = false;
-		$allowed_widget = $this->has_allowed_widget( "mp3-jplayer-widget" );
-		$allowed_widget_B = $this->has_allowed_widget( "mp3mi-widget" );
-		
-		//Flagged in template 
-		if ( $this->scriptsflag == "true" ) {
-			$scripts = true;
-		}
-		
-		//On page types
-		if ( is_home() || is_archive() || is_search() ) {
-			if ( $allowed_widget || $allowed_widget_B || $this->theSettings['player_onblog'] == "true" || $this->theSettings['run_shcode_in_excerpt'] == "true" ) {
-				$scripts = true;
-			}
-		}
-		if ( is_singular() ) {
-			if ( $allowed_widget || $allowed_widget_B || $this->has_shortcodes() || $this->post_has_string() ) {
-				$scripts = true;
-			}
-		}
-		
-		if ( $scripts ) { //Add the scripts
-			$style = ( $this->stylesheet == "" ) ? $this->theSettings['player_theme'] : $this->stylesheet;
-			$this->add_Scripts( $style );
-		}
-		
-		// Always define js player info and playlist arrays here as some
-		// themes cause issues if it's left until shortcode is processed.
-		$this->defineJSvars();  
-		
+	
+	//~~
+	function grablibrary_handler ( $x ) {
+		return $this->grab_library_info( $x );
+	}
+
+	
+	//~~
+	function scripts_tag_handler ( $style = "" ) {
+		$this->stylesheet = ( $style == "" ) ? $this->theSettings['player_theme'] : $style;
 		return;
 	}
 	
 	
-//#############	
-	function checkAddScripts ()
-	{
-		if ( $this->Player_ID > 0 && $this->SCRIPT_CALL === false )
-		{
-			$style = ( $this->stylesheet == "" ) ? $this->theSettings['player_theme'] : $this->stylesheet;
-			$this->add_Scripts( $style );
-			
-			$version = substr( get_bloginfo('version'), 0, 3);
-			if ( $version < 3.3 ) {
-				$this->dbug['str'] .= "\nFAIL Warning: Can't recover because this version of WordPress is too old (below 3.3). Possible causes:\n- Using do_shortcode without adding the scripts first (see plugin help)\n- A genuine bug, please report.\n";
-			}
+	//~~
+	function checkAddScripts ()	{
+		if ( $this->Player_ID > 0 && $this->SCRIPT_CALL === false ) {
+			$this->enqueueJS();
 		}
 	}
 	
-	
-/**	Writes js playlists, startup, and debug info. */	
-	function footercode_handler()
+
+	//~~
+	function createAdminPages ()
 	{
+		/* extension page (arr)
+			--
+			[parent] str
+			[title] str
+			[menuName] str
+			[capability] str
+			[slug] str
+			[drawFunction] str
+			['scriptsFunction'] false/str
+		*/
+				
+		//Core Settings pages
+		$pluginpage = add_menu_page( 'Settings | MP3 jPlayer', 'MP3 jPlayer', 'manage_options', 'mp3-jplayer', 'mp3j_print_admin_page' ); //root				
+		add_submenu_page( 'mp3-jplayer', 'Settings | MP3 jPlayer', 'Settings', 'manage_options', 'mp3-jplayer', 'mp3j_print_admin_page' ); //root in sub
+		add_action( 'admin_head-'. $pluginpage, array( $this, 'mp3j_admin_header' ) ); 
+		$this->menuHANDLES['parent'] = $pluginpage;
+		
+		if ( $this->setup['designPage'] === true ) {
+			$subm_colours = add_submenu_page( 'mp3-jplayer', 'Design | MP3 jPlayer', 'Design', 'manage_options', 'mp3-jplayer-colours', 'mp3j_print_colours_page' );
+			add_action( 'admin_head-'. $subm_colours, array( $this, 'mp3j_admin_colours_header' ) ); 
+			$this->dbug['str'] .= 'colours handle: ' . $subm_colours;
+			$this->menuHANDLES['design'] = $subm_colours;
+		}
+		
+		//Extension pages
+		foreach ( $this->EXTpages as $p ) {
+			$submenu = add_submenu_page( $p['parent'], $p['title'], $p['menuName'], $p['capability'], $p['slug'], $p['drawFunction'] );
+			$this->menuHANDLES[ $p['slug'] ] = $submenu;
+			if ( $p['scriptsFunction'] !== false ) {
+				add_action( 'admin_head-'. $submenu, $p['scriptsFunction'] );
+			}
+		}
+		
+		//add link to settings on the plugin list dashboard
+		add_filter( 'plugin_action_links', array( $this, 'addPluginListLink' ), 10, 2 );		
+	}
+	
+	
+	//~~
+	function mp3j_admin_header () 
+	{
+		wp_enqueue_script('jquery');
+		wp_enqueue_script('mp3jp-settings-js', MP3J_PLUGIN_URL .'/js/admin/settings.2.5.js' );
+		wp_enqueue_script('spectrum-CP-js', MP3J_PLUGIN_URL .'/js/spectrum/spectrum.js' );
+		
+		wp_localize_script( 
+			'mp3jp-settings-js',
+			'MJPajax',
+			array(
+				'WPajaxurl' => admin_url('admin-ajax.php')
+			)
+		);
+		
+		wp_enqueue_style( 'spectrum-css', MP3J_PLUGIN_URL . '/css/admin/spectrum-custom.css' );
+		wp_enqueue_style('mp3jp-settings-css', MP3J_PLUGIN_URL . '/css/admin/admin-settings.css' );
+	}
+	
+	
+	//~~
+	function mp3j_admin_colours_header ()
+	{
+		//scripts
+		wp_enqueue_script('jquery');
+		wp_enqueue_script('jquery-ui-core');
+		wp_enqueue_script('jquery-ui-widget'); 		
+		wp_enqueue_script('jquery-ui-mouse');  		
+		wp_enqueue_script('jquery-ui-slider');
+		wp_enqueue_script('jquery-ui-resizable');
+		wp_enqueue_script('mp3jp-colours-js', MP3J_PLUGIN_URL .'/js/admin/admin-colours.2.7.js' );
+		wp_enqueue_script('spectrum-CP-js', MP3J_PLUGIN_URL .'/js/spectrum/spectrum.js' );
+		
+		//styles
+		wp_enqueue_style('spectrum-CP-css', MP3J_PLUGIN_URL .'/css/admin/spectrum-custom.css' );
+		wp_enqueue_style('mp3jp-colours-css', MP3J_PLUGIN_URL .'/css/admin/admin-colours.css' );
+	}
+	
+	
+	//~~
+	function header_scripts_handler() {
+		$this->enqueueCSS();
+		$WPversion = substr( get_bloginfo('version'), 0, 3 );
+		if ( $WPversion < 3.3 ) {
+			$this->enqueueJS();
+		}
+		$this->defineJSvars();  
+	}
+	
+	
+	//~~
+	function footercode_handler()
+	{		
 		$O = $this->theSettings;
 		$JS = '';
 		if ( $this->Player_ID > 0 )
@@ -114,7 +243,7 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$JS .= "\n\tif (typeof MP3_JPLAYER !== 'undefined') {";
 			
 			$JS .= ( $this->FIRST_FORMATS !== 'mp3' ) ? "\n\t\tMP3_JPLAYER.lastformats = '" . $this->FIRST_FORMATS . "';" : "";
-			$JS .= "\n\t\tMP3_JPLAYER.plugin_path = '" . $this->PluginFolder . "';";
+			$JS .= "\n\t\tMP3_JPLAYER.plugin_path = '" . MP3J_PLUGIN_URL . "';";
 			
 			$JS .= ( $O['allowRangeRequests'] !== 'true' ) ? "\n\t\tMP3_JPLAYER.allowRanges = " . $O['allowRangeRequests'] . ";" : "";
 			$JS .= "\n\t\tMP3_JPLAYER.pl_info = MP3jPLAYERS;";
@@ -122,11 +251,17 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$JS .= ( $O['force_browser_dload'] !== 'true' ) ? "\n\t\tMP3_JPLAYER.vars.force_dload = " . $O['force_browser_dload'] . ";" : "";
 			$JS .= "\n\t\tMP3_JPLAYER.vars.dload_text = '" . $O['dload_text'] . "';";
 			
+			$JS .= "\n\t\tMP3_JPLAYER.hasListMeta = " . $O['hasListMeta'] . ";";
+			
 			if ( $this->setup['stylesheetPopout'] === true ) {
 				$JS .= "\n\t\tMP3_JPLAYER.vars.stylesheet_url = '" . $this->PP_css_url . "';";
 			}
 			if ( $O['force_browser_dload'] == "true" && $O['dloader_remote_path'] !== "" ) {
 				$JS .= 	"\n\t\tMP3_JPLAYER.vars.dl_remote_path = '" . $O['dloader_remote_path'] . "';";
+			}
+			
+			if ( $O['autoResume'] == "false" ) {
+				$JS .= 	"\n\t\tMP3_JPLAYER.pickup = false;";
 			}
 			
 			$showErrors = $O['showErrors'];
@@ -139,8 +274,88 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$JS .= "\n\t}";
 			$JS .= "\n});\n</script>\n";
 			echo $JS;
+		
+			if ( $this->setup['cssHead'] === true ) {
+				echo $this->writeColoursCSS();
+			}
+			
+			$CSS = "\n\n";
+			if ( $O['mp3tColour_on'] === 'true' ) 
+			{
+				$CSS .= "\n<style>\n";
+				
+				$CSS .=  "\n 
+					span.textbutton_mp3j {
+						color:" . $O['mp3tColour'] . "; 
+					}
+					span.vol_mp3t .ui-slider-handle,
+					span.vol_mp3t .ui-slider-handle:hover,
+					span.posbar_mp3j .ui-slider-handle,
+					span.posbar_mp3j .ui-slider-handle:hover,
+					.load_mp3j,
+					.s-text .Smp3-tint {
+						background-color:" . $O['mp3tColour'] . ";
+						border-color:" . $O['mp3tColour'] . ";
+					}
+					.s-text .Smp3-tint {
+						opacity:0.4;
+						filter:alpha(opacity=40);
+					}
+					.s-text .Smp3-finding,
+					.s-text .mp3-gtint,
+					.load_mp3j {
+						opacity:0.25;
+						filter:alpha(opacity=25);
+					}
+					span.posbar_mp3j .ui-slider-handle,
+					span.posbar_mp3j .ui-slider-handle:hover {
+						background:rgba(" . $this->hexToRGB ( $O['mp3tColour'], true ) . ",0.3);
+						border-color:" . $O['mp3tColour'] . ";
+					}";
+				
+				$CSS .= "\n</style>\n";
+			}
+			
+			if ( $O['mp3jColour_on'] === 'true' ) 
+			{
+				$CSS .= "\n<style>\n";
+				
+				$CSS .= "
+					span.gfxbutton_mp3j.play-mjp, 
+					span.gfxbutton_mp3j.pause-mjp,
+					span.gfxbutton_mp3j.play-mjp:hover, 
+					span.gfxbutton_mp3j.pause-mjp:hover,
+					span.vol_mp3j .ui-slider-handle,
+					span.vol_mp3j .ui-slider-handle:hover,
+					span.posbarB_mp3j .ui-slider-handle,
+					span.posbarB_mp3j .ui-slider-handle:hover,
+					.loadB_mp3j,
+					.s-graphic .Smp3-tint { 
+						background-color:" . $O['mp3jColour'] . "; 
+						border-color:" . $O['mp3jColour'] . "; 
+					}
+					.s-graphic .Smp3-tint {
+						opacity:0.4;
+						filter:alpha(opacity=40);
+					}
+					.s-graphic .Smp3-finding,
+					.s-graphic .mp3-gtint,
+					.loadB_mp3j {
+						opacity:0.25;
+						filter:alpha(opacity=25);
+					}
+					span.posbarB_mp3j .ui-slider-handle,
+					span.posbarB_mp3j .ui-slider-handle:hover {
+						background:rgba(" . $this->hexToRGB ( $O['mp3jColour'], true ) . ",0.3);
+						border-color:" . $O['mp3jColour'] . ";
+					}";
+				
+				$CSS .= "\n</style>\n";
+			}
+			
+			echo $CSS;
 		}
-
+		
 		// Write debug
 		if ( $O['echo_debug'] == "true" ) { 
 			$this->debug_info(); 
@@ -157,23 +372,20 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		$listJS = '';
 		
 		global $post;
-		$currentID = $post->ID;
+		$currentID = ( ! empty( $post->ID ) ) ? $post->ID : '';
 		if ( $currentID !== $this->currentID ) {
 			$this->S_arb = 1;
 			$this->currentID = $currentID;
 		}
-		//$this->S_arb = ( $currentID === $this->currentID ) ? $this->S_arb : 1;
 		
 		if ( $ids !== '' ) //came via [audio] shortcode, has 1 attachment
 		{
-			//$TRACKS = $this->IDsToTracks( $ids, 'false' );
 			$TRACKS = $this->IDsToTracks( $ids, 'true' );
 			if ( ! $TRACKS ) {
 				return false;
 			}
 			$track = 1;					
 			$playername = "inline_" . $this->S_no++;
-			//TODO: track numbering issue
 			$trackNumber = ( $this->theSettings['add_track_numbering'] == "true" ) ? $this->S_arb . '. ' : '';
 			$listJS = $this->writePlaylistJS( $TRACKS, $playername, $this->S_arb++ );
 		}
@@ -186,7 +398,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 				}
 				$track = ++$this->S_autotrack;
 				$playername = $this->F_listname;
-				//TODO: track numbering issue
 				$trackNumber = ( $this->theSettings['add_track_numbering'] == "true" ) ? $track . '. ' : '';
 				$TRACKS = $this->F_LISTS[ $playername ];
 			}
@@ -196,7 +407,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 					return false; 
 				}
 				$playername = $this->F_listname;
-				//TODO: track numbering issue
 				$trackNumber = ( $this->theSettings['add_track_numbering'] == "true" ) ? $track . '. ' : '';
 				$TRACKS = $this->F_LISTS[ $playername ];
 			} 
@@ -208,7 +418,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 				}
 				$track = 1;					
 				$playername = "inline_" . $this->S_no++;
-				//TODO: track numbering issue
 				$trackNumber = ( $this->theSettings['add_track_numbering'] == "true" ) ? $this->S_arb . '. ' : '';
 				$listJS = $this->writePlaylistJS( $TRACKS, $playername, $this->S_arb++ );
 			}
@@ -233,32 +442,14 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			return;
 		}
 		
-		$C =  $this->theSettings['colour_settings'];
+		//Extensions - pre filter params hook.
+		$atts = MJPfront_mp3t( $atts );
 		
-		$id = $this->Player_ID;			
-		extract( shortcode_atts( array( // Defaults
-			'bold' 			=> 'y',
-			'play' 			=> 'Play',
-			'track' 		=> '',
-			'tracks' 		=> '',
-			'caption' 		=> '',
-			'flip' 			=> 'l',
-			'title' 		=> '#USE#',
-			'stop' 			=> 'Stop',
-			'ind' 			=> 'y',
-			'autoplay' 		=> $this->theSettings['auto_play'],
-			'loop' 			=> $this->theSettings['playlist_repeat'],
-			'vol' 			=> $this->theSettings['initial_vol'],
-			'flow' 			=> 'n',
-			'volslider' 	=> $this->theSettings['volslider_on_singles'],
-			'style' 		=> '',
-			'counterpart' 	=> '',
-			'counterparts' 	=> '',
-			'ids' 			=> '',
-			'fontsize'		=>  $this->theSettings['font_size_mp3t'],
-		), $atts ) );
+		//Merge user/default params.
+		$defaults = $this->playerDefaultParams( 'mp3t' );
+		extract( shortcode_atts( $defaults, $atts ) );
 		
-		//Alias some params
+		//Alias some params.
 		if ( $track == '' && $tracks != '' ) {
 			$track = $tracks;
 		}
@@ -266,7 +457,7 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$counterpart = $counterparts;
 		}
 		$cssclass = $style;
-		
+				
 		//Try make a playlist
 		$tn = $this->decide_S_playlist( $track, $caption, $counterpart, $ids );
 		if ( !$tn ) { 
@@ -274,14 +465,17 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			return;
 		}
 		
+		$C =  $this->theSettings['colour_settings'];
+		$id = $this->Player_ID;			
+		
 		$CSSext = '-mjp';
 		$font1Class = 	( $C['font_family_1'] === 'theme' ) 	? '' : ' ' . $C['font_family_1'] . $CSSext;
 		
-		$divO = '<span class="unsel-mjp ' . $cssclass . $font1Class . '">';
+		$divO = '<span id="mp3jWrap_' . $id. '" class="mjp-s-wrapper s-text unsel-mjp ' . $cssclass . $font1Class . '">';
 		$divC = "</span>";
 		$b = "";
 		if ( $flow == "n" || $this->Caller == "widget" ) {
-			$divO = ( $cssclass == "" ) ? '<div class="mjp-s-wrapper s-text unsel-mjp' . $font1Class . '" style="font-size:' .$fontsize. ';">' : '<div class="unsel-mjp ' . $cssclass . $font1Class . '" style="font-size:' .$fontsize. ';">';
+			$divO = '<div id="mp3jWrap_' . $id. '" class="mjp-s-wrapper s-text unsel-mjp ' . $cssclass . $font1Class . '" style="font-size:' .$fontsize. ';">';
 			$divC = "</div>";
 		}
 		
@@ -321,15 +515,15 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		$errorMsg =	"<span class=\"s-nosolution\" id=\"mp3j_nosolution_" . $id . "\" style=\"display:none;\"></span>";
 				
 		// Assemble them		
-		$html = ( $flip != "l" ) ? $openWrap . $pos . $title_h . $spacer . $play_h . $closeWrap . $errorMsg : $openWrap . $pos . $play_h . $spacer . $title_h . $closeWrap . $errorMsg;
+		$html = ( $flip != "false" ) ? $openWrap . $pos . $title_h . $spacer . $play_h . $closeWrap . $errorMsg : $openWrap . $pos . $play_h . $spacer . $title_h . $closeWrap . $errorMsg;
 		
 		// Add info to js info array
 		$autoplay = ( $autoplay == "true" || $autoplay == "y" || $autoplay == "1" ) ? "true" : "false";
 		$loop = ( $loop == "true" || $loop == "y" || $loop == "1" ) ? "true" : "false";
+		$dload = ( $dload == "true" || $dload == "y" || $dload == "1" ) ? "true" : "false";
 		
 		$this->defineJSvars();
-		$playerInfo = "{ list: MP3jPLAYLISTS." . $tn['playername'] . ", tr: " . ($tn['track']-1) . ", type: 'single', lstate: '', loop: " . $loop . ", play_txt: '" . $play . "', pause_txt: '" . $stop . "', pp_title: '', autoplay:" . $autoplay . ", download: false, vol: " . $vol . ", height: '' }";
-		//$playerJS = "<script>MP3jPLAYERS.push(" . $playerInfo . ");</script>";
+		$playerInfo = "{ list: MP3jPLAYLISTS." . $tn['playername'] . ", tr: " . ($tn['track']-1) . ", type: 'single', lstate: '', loop: " . $loop . ", play_txt: '" . $play . "', pause_txt: '" . $stop . "', pp_title: '', autoplay:" . $autoplay . ", download:" . $dload . ", vol: " . $vol . ", height: '' }";
 		$playerJS = "<script>MP3jPLAYERS[" .$id. "] = " . $playerInfo . ";</script>";
 		
 		$this->dbug['str'] .= "\nOK (id " . $this->Player_ID . ")";
@@ -347,29 +541,14 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			return;
 		}
 		
-		$C =  $this->theSettings['colour_settings'];
+		//Extensions - pre filter params hook.
+		$atts = MJPfront_mp3j( $atts );
 		
-		$id = $this->Player_ID;			
-		extract(shortcode_atts(array( // Defaults
-			'bold' 			=> 'y',
-			'track' 		=> '',
-			'tracks' 		=> '',
-			'caption' 		=> '',
-			'flip' 			=> 'r',
-			'title' 		=> '#USE#',
-			'ind' 			=> 'y',
-			'autoplay' 		=> $this->theSettings['auto_play'],
-			'loop' 			=> $this->theSettings['playlist_repeat'],
-			'vol' 			=> $this->theSettings['initial_vol'],
-			'flow' 			=> 'n',
-			'volslider' 	=> $this->theSettings['volslider_on_mp3j'],
-			'style' 		=> '',
-			'counterpart'	=> '',
-			'counterparts' 	=> '',
-			'ids' 			=> '',
-			'fontsize'		=> $this->theSettings['font_size_mp3j'],
-		), $atts));
+		//Merge user/default params.
+		$defaults = $this->playerDefaultParams( 'mp3j' );
+		extract( shortcode_atts( $defaults, $atts ) );
 		
+		//Alias some params.
 		if ( $track == '' && $tracks != '' ) {
 			$track = $tracks;
 		}
@@ -383,15 +562,18 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$this->dbug['str'] .= "\nExiting (no track here)";
 			return;
 		}
+				
+		$C =  $this->theSettings['colour_settings'];
+		$id = $this->Player_ID;	
 		
 		$CSSext = '-mjp';
 		$font1Class = 	( $C['font_family_1'] === 'theme' ) 	? '' : ' ' . $C['font_family_1'] . $CSSext;
 		
-		$divO = '<span class="' . $cssclass . $font1Class . '">';
+		$divO = '<span id="mp3jWrap_' . $id. '" class="mjp-s-wrapper s-graphic unsel-mjp ' . $cssclass . $font1Class . '">';
 		$divC = "</span>";
 		$b = "";
 		if ( $flow == "n" || $this->Caller == "widget" ) {
-			$divO = ( $cssclass == "" ) ? '<div class="mjp-s-wrapper s-graphic unsel-mjp' . $font1Class . '" style="font-size:' .$fontsize. ';">' : '<div class="unsel-mjp ' . $cssclass . $font1Class . '" style="font-size:' .$fontsize. ';">';
+			$divO = '<div id="mp3jWrap_' . $id. '" class="mjp-s-wrapper s-graphic unsel-mjp ' . $cssclass . $font1Class . '" style="font-size:' .$fontsize. ';">';
 			$divC = "</div>";
 		}
 	
@@ -412,11 +594,10 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		}
 		
 		// Make id'd span elements
-		$flippedcss = ( $flip == "r" ) ? "" : " flipped";
+		$flippedcss = ( $flip == "false" ) ? "" : " flipped";
 		$openWrap = $divO . "<span id=\"playpause_wrap_mp3j_" . $id . "\" class=\"wrap_inline_mp3j\"" . $b . ">";
 		$vol_h = ( $volslider == 'true' || $volslider == 'y' || $volslider == 'Y' ) ? "<span class=\"vol_mp3j" . $flippedcss . "\" id=\"vol_mp3j_" . $id . "\"></span>" : "";
 		$pos = "<span class=\"bars_mp3j\"><span class=\"loadB_mp3j\" id=\"load_mp3j_" . $id . "\"></span><span class=\"posbarB_mp3j\" id=\"posbar_mp3j_" . $id . "\"></span></span>";
-		//$play_h = "<span class=\"play-mjp\" id=\"playpause_mp3j_" . $id . "\">&nbsp;</span>";
 		$play_h = "<span class=\"gfxbutton_mp3j play-mjp\" id=\"playpause_mp3j_" . $id . "\" style=\"font-size:" .$fontsize. ";\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>";
 		$spacer = "";
 		
@@ -424,15 +605,15 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		$indi_h = ( $ind != "y" ) ? "<span style=\"display:none;\" id=\"statusMI_" . $id . "\"></span>" : "<span class=\"indi_mp3j\" style=\"font-size:" .(intval($fontsize)*0.7) . "px;\" id=\"statusMI_" . $id . "\"></span>";
 		$errorMsg =	"<span class=\"s-nosolution\" id=\"mp3j_nosolution_" . $id . "\" style=\"display:none;\"></span>";
 		// Assemble them		
-		$html = ( $flip == "r" ) ? $openWrap . "<span class=\"group_wrap\">" . $pos . $title_h . $indi_h . "</span>" . $play_h . $vol_h . "</span>" . $divC . $errorMsg : $openWrap . $play_h . "&nbsp;<span class=\"group_wrap\">" . $pos . $title_h . $indi_h . "</span>" . $vol_h . "</span>" . $divC . $errorMsg;
+		$html = ( $flip == "false" ) ? $openWrap . "<span class=\"group_wrap\">" . $pos . $title_h . $indi_h . "</span>" . $play_h . $vol_h . "</span>" . $divC . $errorMsg : $openWrap . $play_h . "&nbsp;<span class=\"group_wrap\">" . $pos . $title_h . $indi_h . "</span>" . $vol_h . "</span>" . $divC . $errorMsg;
 		
 		// Add info to js info array
 		$autoplay = ( $autoplay == "true" || $autoplay == "y" || $autoplay == "1" ) ? "true" : "false";
 		$loop = ( $loop == "true" || $loop == "y" || $loop == "1" ) ? "true" : "false";
+		$dload = ( $dload == "true" || $dload == "y" || $dload == "1" ) ? "true" : "false";
 		
 		$this->defineJSvars();
-		$playerInfo = "{ list: MP3jPLAYLISTS." . $tn['playername'] . ", tr:" . ($tn['track']-1) . ", type:'single', lstate:'', loop:" . $loop . ", play_txt:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', pause_txt:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', pp_title:'', autoplay:" . $autoplay . ", download:false, vol:" . $vol . ", height:'' }";
-		//$playerJS = "<script>MP3jPLAYERS.push(" . $playerInfo . ");</script>";
+		$playerInfo = "{ list: MP3jPLAYLISTS." . $tn['playername'] . ", tr:" . ($tn['track']-1) . ", type:'single', lstate:'', loop:" . $loop . ", play_txt:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', pause_txt:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', pp_title:'', autoplay:" . $autoplay . ", download:" . $dload . ", vol:" . $vol . ", height:'' }";
 		$playerJS = "<script>MP3jPLAYERS[" .$id. "] = " . $playerInfo . ";</script>";
 		
 		$this->dbug['str'] .= "\nOK (id " . $this->Player_ID . ")";
@@ -450,8 +631,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$imageInfo = wp_get_attachment_image_src( $thumb_id, $size );
 			$url = $imageInfo[0];
 		} else {
-			//$url = wp_mime_type_icon( $postID ); //default WP image
-			//$url = $this->PluginFolder . '/css/images/music-default-2.png';
 			$url = 'false';
 		}
 		return $url;
@@ -497,18 +676,14 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 //###############
 	function isAllowedMimeType ( $mimeType )
 	{
-		return ( (stripos($mimeType, 'audio') === 0) ? true : false );
+		return ( (stripos( $mimeType, 'audio' ) === 0 ) ? true : false );
 	}
 	
 	
 //####	Work out playlist for playlist players
 	function decide_M_playlist( $ATTS )
 	{
-		extract( $ATTS );
-		
-		//TODO: do support this still
-		$this->folder_order = $fsort;
-		
+		extract( $ATTS );		
 		$TRACKS = $this->stringsToTracks( $tracks, $counterparts, $captions, $images, $imglinks );
 		if ( ! $TRACKS )
 		{ 
@@ -677,7 +852,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 				$output = $this->primary_player( $attr, $content );
 			}
 		}
-		//return ( $i > 1 ? $this->primary_player( $attr, $content ) : $this->inline_play_graphic( $attr ) );
 		return $output;
 	}
 
@@ -725,7 +899,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		if ( ! isset( $attr['captions'] ) ) {
 			$attr['captions'] = ( isset($attr['artists']) && $attr['artists'] === 'false' ) ? false : '';
 		}
-		//$attr['images'] = ( isset($attr['images']) && $attr['images'] === 'false' ) ? '' : 'true';
 		$attr['images'] = ( !isset($attr['images']) ) ? 'true' : $attr['images'];
 		$attr['text'] = ( ! empty($attr['title']) && empty($attr['text']) ) ? $attr['title'] : ( empty($attr['text']) ? '' : $attr['text'] ); //popout link text
 		
@@ -744,58 +917,15 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			return;
 		}
 		
+		//Extensions - Send the pre filtered params.
+		$atts = MJPfront_playlist_player( $atts );
 		
 		$O = $this->theSettings;
 		$pID = $this->Player_ID;
-		$ATTS = shortcode_atts( array( // Defaults
-			'tracks' => '',
-			'track' => '',
-			'captions' => '',
-			'dload' => $O['show_downloadmp3'],
-			'title' => '',
-			'list' => $O['playlist_show'],
-			'pn' => 'y',
-			'width' => '',
-			'pos' => $O['player_float'],
-			'stop' => 'y',
-			'shuffle' => false,
-			'pick' => '',
-			'id' => '',
-			'loop' => $O['playlist_repeat'],
-			'autoplay' => $O['auto_play'],
-			'vol' => $O['initial_vol'],
-			'height' => $O['playerHeight'],
-			'fsort' => 'asc',
-			'style' => '',
-			'images' => 'true',
-			'imglinks' => '',
-			'imagesize' => $O['imageSize'],
-			'ids' => '',
-			'counterparts' => '',
-			'counterpart' 	=> '',
-			'font_size_1'	=> $O['colour_settings']['font_size_1'],
-			'font_size_2'	=> $O['colour_settings']['font_size_2'],
-			'font_family_1'	=> $O['colour_settings']['font_family_1'],
-			'font_family_2'	=> $O['colour_settings']['font_family_2'],
-			'titlealign'	=> $O['colour_settings']['titleAlign'],
-			'titleoffset' => $O['colour_settings']['titleOffset'],
-			'titleoffsetr' => $O['colour_settings']['titleOffsetR'],
-			'titlebold'	=> $O['colour_settings']['titleBold'],
-			'titleitalic' => $O['colour_settings']['titleItalic'],
-			'captionbold' => $O['colour_settings']['captionBold'],
-			'captionitalic' => $O['colour_settings']['captionItalic'],
-			'listbold'		=> $O['colour_settings']['listBold'],
-			'listitalic'	=> $O['colour_settings']['listItalic'],
-			'listalign'	=> $O['colour_settings']['listAlign'],
-			'imagealign' => $O['colour_settings']['imageAlign'],
-			'imgoverflow' => $O['colour_settings']['imgOverflow'],
-			'titletop' => $O['colour_settings']['titleTop'],
-			'titlecol' => '',
-			'fontsize' => '',
-			'pptext' => $this->theSettings['popout_button_title']
-		), $atts );
 		
-		
+		$defaults = $this->playerDefaultParams( 'playlist' );
+		$ATTS = shortcode_atts( $defaults, $atts );
+				
 		//Alias params
 		if ( $ATTS['tracks'] == '' && $ATTS['track'] != '' ) { 
 			$ATTS['tracks'] = $ATTS['track'];
@@ -804,7 +934,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$ATTS['counterparts'] = $ATTS['counterpart'];
 		}
 		$ATTS['userClasses'] = $O['colour_settings']['userClasses'] . ' ' . $ATTS['style'];
-		
 		
 		//Try build a playlist
 		$TRACKS = $this->decide_M_playlist( $ATTS );
@@ -815,14 +944,13 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		$ATTS['trackCount'] = count( $TRACKS );
 		
 		//Make js list
-		$PlayerName = "MI_" . $this->M_no; 
+		$PlayerName = "MI_" . $pID; 
 		$listJS = $this->writePlaylistJS( $TRACKS, $PlayerName );
 		
 		//Make settings..
 		$trnum = 0;
 		$pp_height = (int)$ATTS['height'];
 		$pp_height = ( empty($pp_height) || $pp_height === 0 ) ? 'false' : $pp_height;
-		//$play = "#USE_G#";
 		$pp_title = ( $ATTS['title'] == "" ) ? get_bloginfo('name') : $ATTS['title'] . " | " . get_bloginfo('name');
 		$pp_title = str_replace("'", "\'", $pp_title);
 		$pp_title = str_replace("&#039;", "\'", $pp_title);
@@ -855,7 +983,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		$ATTS['autoplay'] = ( $ATTS['autoplay'] == "true" || $ATTS['autoplay'] == "y" || $ATTS['autoplay'] == "1" ) ? "true" : "false";
 		$ATTS['loop'] = ( $ATTS['loop'] == "true" || $ATTS['loop'] == "y" || $ATTS['loop'] == "1" ) ? "true" : "false";
 		
-		
 		//Make transport buttons
 		$ATTS['prevnext'] = ( $ATTS['trackCount'] > 1 && $ATTS['pn'] == "y" ) ? "<div class=\"next-mjp\" id=\"Next_mp3j_" . $pID . "\">Next&raquo;</div><div class=\"prev-mjp\" id=\"Prev_mp3j_" . $pID . "\">&laquo;Prev</div>" : "";
 		$ATTS['play_h'] = "<div class=\"play-mjp\" id=\"playpause_mp3j_" . $pID . "\">Play</div>";
@@ -867,15 +994,12 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		
 		//js player info
 		$popoutcss = ( $this->setup['cssPopout'] === true ) ? "{ enabled:true, " .$player['js']. "}" : "{ enabled:false, " .$player['js']. "}";
-		//$playerInfo = "{ list:MP3jPLAYLISTS." .$PlayerName. ", tr:" .$trnum. ", type:'MI', lstate:" .$ATTS['list']. ", loop:" .$ATTS['loop']. ", play_txt:'Play', pause_txt:'Pause', pp_title:'" .$pp_title. "', autoplay:" .$ATTS['autoplay']. ", download:" .$dload_info. ", vol:" .$ATTS['vol']. ", height:" .$pp_height. ", cssclass:'" .$ATTS['userClasses']. "', popout_css:{" .$player['js']. "} }";
 		$playerInfo = "{ list:MP3jPLAYLISTS." .$PlayerName. ", tr:" .$trnum. ", type:'MI', lstate:" .$ATTS['list']. ", loop:" .$ATTS['loop']. ", play_txt:'Play', pause_txt:'Pause', pp_title:'" .$pp_title. "', autoplay:" .$ATTS['autoplay']. ", download:" .$dload_info. ", vol:" .$ATTS['vol']. ", height:" .$pp_height. ", cssclass:'" .$ATTS['userClasses']. "', popout_css:" .$popoutcss. " }";
-		//$playerJS = "<script>MP3jPLAYERS.push(" . $playerInfo . ");</script>\n\n";
 		$playerJS = "<script>MP3jPLAYERS[" .$pID. "] = " . $playerInfo . ";</script>\n\n";
 		
 		
 		//Finish up
 		$this->dbug['str'] .= "\nOK (id " . $this->Player_ID . ")";
-		$this->M_no++;
 		$this->Player_ID++;
 		
 		return $player['html'] . $listJS . $playerJS;
@@ -892,58 +1016,15 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			return;
 		}
 		
+		//Extensions - Send the pre filtered params.
+		$atts = MJPfront_popout_player( $atts );
+		
 		$O = $this->theSettings;
 		$pID = $this->Player_ID;
-		$ATTS = shortcode_atts( array( // Defaults
-			'tracks' => '',
-			'track' => '',
-			'captions' => '',
-			'dload' => $this->theSettings['show_downloadmp3'],
-			'title' => '',
-			'text' => $this->theSettings['popout_button_title'],
-			'stop' => 'y',
-			'pn' => 'y',
-			'list' => $this->theSettings['playlist_show'],
-			'width' => '',
-			'pos' => $this->theSettings['player_float'],
-			'shuffle' => false,
-			'pick' => '',
-			'id' => '',
-			'loop' => $this->theSettings['playlist_repeat'],
-			'autoplay' => $this->theSettings['auto_play'],
-			'vol' => $this->theSettings['initial_vol'],
-			'height' => $this->theSettings['playerHeight'],
-			'tag' => 'p',
-			'image' => '',
-			'fsort' => 'asc',
-			'style' => '',
-			'images' => 'true',
-			'imagesize' => $O['imageSize'],
-			'imglinks' => '',
-			'ids' => '',
-			'counterparts' => '',
-			'counterpart' 	=> '',
-			'font_size_1'	=> $O['colour_settings']['font_size_1'],
-			'font_size_2'	=> $O['colour_settings']['font_size_2'],
-			'font_family_1'	=> $O['colour_settings']['font_family_1'],
-			'font_family_2'	=> $O['colour_settings']['font_family_2'],
-			'titlealign'	=> $O['colour_settings']['titleAlign'],
-			'titleoffset' => $O['colour_settings']['titleOffset'],
-			'titleoffsetr' => $O['colour_settings']['titleOffsetR'],
-			'titlebold'	=> $O['colour_settings']['titleBold'],
-			'titleitalic' => $O['colour_settings']['titleItalic'],
-			'captionbold' => $O['colour_settings']['captionBold'],
-			'captionitalic' => $O['colour_settings']['captionItalic'],
-			'listbold'		=> $O['colour_settings']['listBold'],
-			'listitalic'	=> $O['colour_settings']['listItalic'],
-			'listalign'	=> $O['colour_settings']['listAlign'],
-			'imagealign' => $O['colour_settings']['imageAlign'],
-			'imgoverflow' => $O['colour_settings']['imgOverflow'],
-			'titletop' => $O['colour_settings']['titleTop'],
-			'titlecol' => '',
-			'fontsize' => ''
-		), $atts );
-					
+			
+		$defaults = $this->playerDefaultParams( 'popout' );
+		$ATTS = shortcode_atts( $defaults, $atts );
+
 		//Alias some params
 		if ( $ATTS['tracks'] == '' && $ATTS['track'] != '' ) {
 			$ATTS['tracks'] = $ATTS['track'];
@@ -961,21 +1042,17 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 			$this->dbug['str'] .= "\nExiting (no tracks here)";
 			return;
 		}
-		//$trackCount = count( $TRACKS );
 		$ATTS['trackCount'] = count( $TRACKS );
 		
 		extract( $ATTS );
-		//$ATTS['cssclass'] = $ATTS['style'];
 		
 		//Make js list
-		$PlayerName = "popout_" . $this->M_no; 
+		$PlayerName = "popout_" . $pID; 
 		$listJS = $this->writePlaylistJS( $TRACKS, $PlayerName );
 		
 		//Make settings..
-		//$ATTS['cssclass'] = ( $ATTS['cssclass'] == "" ) ? "wrap-mjp" : $ATTS['cssclass']; 
 		$pp_height = (int)$height;
 		$pp_height = ( empty($pp_height) || $pp_height === 0 ) ? 'false' : $pp_height;
-		//$play = "#USE_G#";
 		$pp_title = ( $title == "" ) ? get_bloginfo('name') : $title;
 		$pp_title = str_replace("'", "\'", $pp_title);
 		$pp_title = str_replace("&#039;", "\'", $pp_title);
@@ -986,44 +1063,31 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		
 		
 		//Make player	
-		//$image_h = ( $image == "" ) ? "<div class=\"mp3j-popout-link\"></div>" : "<img class=\"mp3j-popout-link-image\" src=\"" . $image . "\" />";
-		//$player = '<div class="mp3j-popout-link-wrap unsel-mjp" id="mp3j_popout_' . $pID . '">' . $image_h . '<'.$tag.'>' . $text . '</'.$tag.'></div>';
 		$image_h = ( $image === "" ) ? '<div class="popout-image-mjp"></div>' : '<img class="popout-image-mjp-custom" src="' . $image . '" />';
 		$text_h = ( $text !== "" ) ? '<div class="popout-text-mjp"><'.$tag.'>' . $text . '</'.$tag.'></div>' : '';
 		
 		$player = '<div class="popout-wrap-mjp unsel-mjp" id="mp3j_popout_' . $pID . '">';
 		$player .= $image_h . $text_h;
-		//$player .= '<br class="clearL-mjp">';
 		$player .= '</div>';
 		
-		
-		////
+
 		$output = $this->drawPlaylistPlayer( $ATTS, true );
 		//js player info
 		$popoutcss = ( $this->setup['cssPopout'] === true ) ? "{ enabled:true, " .$output['js']. "}" : "{ enabled:false, " .$output['js']. "}";
-		//$playerInfo = "{ list: MP3jPLAYLISTS." . $PlayerName . ", tr:0, type:'popout', lstate:" . $list . ", loop:" . $loop . ", play_txt:'Play', pause_txt:'Pause', pp_title:'" . $pp_title . "', autoplay:" . $autoplay . ", download:" . $dload_info . ", vol:" . $vol . ", height:" . $pp_height . ", cssclass: '" . $ATTS['userClasses'] . "', popout_css:{" .$output['js']. "} }";
 		$playerInfo = "{ list: MP3jPLAYLISTS." . $PlayerName . ", tr:0, type:'popout', lstate:" . $list . ", loop:" . $loop . ", play_txt:'Play', pause_txt:'Pause', pp_title:'" . $pp_title . "', autoplay:" . $autoplay . ", download:" . $dload_info . ", vol:" . $vol . ", height:" . $pp_height . ", cssclass: '" . $ATTS['userClasses'] . "', popout_css:" .$popoutcss. " }";
-		//$playerJS = "<script>MP3jPLAYERS.push(" . $playerInfo . ");</script>\n\n";
 		$playerJS = "<script>MP3jPLAYERS[" .$pID. "] = " . $playerInfo . ";</script>\n\n";
-		
-		
-		
 		
 		//Finish up
 		$this->dbug['str'] .= "\nOK (id " . $this->Player_ID . ")";
-		$this->M_no++;
 		$this->Player_ID++;
 		
 		return $player . $listJS . $playerJS;
 	}
 
 
-//###########################
+	//~~
 	function template_tag_handler( $stuff = "" ) {
-		//if ( $this->theSettings['disable_template_tag'] == "true" ) { 
-		//	return;
-		//}
-		if ( !empty($stuff) ) {
+		if ( ! empty( $stuff ) ) {
 			$this->checkGrabFields(); //for singles
 			$this->Caller = "tag";
 			$players = do_shortcode( $stuff );				
@@ -1034,11 +1098,11 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 	}
 		
 
-//###########################
+	//~~
 	function checkGrabFields ()
 	{
 		global $post;
-		if ( $post->ID != "" && $post->ID != $this->postID )
+		if ( ! empty( $post->ID ) && $post->ID != $this->postID )
 		{
 			$this->postID = $post->ID; 
 			$this->F_listname = false; 
@@ -1058,6 +1122,6 @@ if ( !class_exists("MP3j_Front") && class_exists("MP3j_Main") ) { class MP3j_Fro
 		}
 		return $this->F_listname;
 	}
-
-}} // Close class, close if.
+	
+} //end class
 ?>

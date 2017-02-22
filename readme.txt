@@ -1,83 +1,42 @@
-=== MP3-jPlayer Mod ===
-
-Go and check working example on my wordpress blog: http://p1rat.ru/lezzz/HLeim
-
-This is the modificated version of wordpress plugin called MP3-jPlayer https://wordpress.org/plugins/mp3-jplayer/
-written by Simon Ward. 
-Changes:
-+ Apache Index Playlists: makes you an ability to create dynamic playlists from files listed by apache. How to do it?
-There is a little instruction from me (it is easier than it looks like):
-Let's say that http://wp.example.com - is your wordpress site. It is hosted on cheap hosting and 
-doesn't have much space to place music files there. And let's say that http://library.example.com - is your Home computer or server which is always 
-powered on and have 3TB of free space to host music files! 
-
-
-1. On your domain register service (GoDaddy for example) you should edit DNS Zone file (GoDaddy and others provide super easy UI for that!)
-You need to create DNS record of type "A" with theese settings
-host     type   value
-library  A      <your_music_server_ip_address>
-
-<your_music_server_ip_address> - is your music server's IP address (should be external). 
- 
-What we get? We have just made that if we open our browser and write http://library.example.com we will reach our music server actually!
-But there is no we page yet, let's create it!
- 
-2. You need is to install Apache 2.x on your home server and create a directory access for it
-# Create virtual host in httpd.conf
-<VirtualHost *:80>
-  ServerName library.example.com # Domain should be replaces with your domain
-  ServerAlias www.library.example.com # This is optional
-  DocumentRoot "c:/My Music/" # This is root folder for our host
-  <Directory "c:/My Music/"> # A path to your music folder
-    Options +Indexes # this is REQUIRED to list files!!!
-    Require all granted ## On apache 2.4
-    # Allow from all ## This should be uncommented for apache 2.2 and above string should be commented
-  </Directory>
-</VirtualHost>
-
-Now restart Apache and open http://library.example.com in your browser and you will see you music files!
-3. Now go on your wordpress site and install modified plugin from releases page
-4. Create new Post and write there shortcode for mp3-jplayer
-
-[mp3-jplayer tracks="FEED:HTTP|library.example.com/some_mp3_folder" list="y" title="My album"]
-
-And save the Post.
-
-5. Well done! Your should now see player with your music files in this post.
-
 === MP3-jPlayer ===
 Author URI: http://sjward.org
 Plugin URI: http://mp3-jplayer.com
 Contributors: simon.ward
 Donate link: http://www.sjward.org/jplayer-for-wordpress
-Tags: audio, audio player, audio playlist, mp3 player, music player, media, mobile, iphone, ipad, integration, multisite, playlist player, media player, audio widget, audio download, html5 audio, music player, mp3, music, html5, flash, jplayer, playlist, jquery, shortcode, widget, css, post, page, sidebar, html 5
+Tags: audio, playlist, player, music, audio player, audio playlist, mp3 player, music player, media, mobile, iphone, ipad, integration, multisite, playlist player, media player, audio widget, audio download, html5 audio, music player, mp3, html5, flash, jplayer, jquery, shortcode, widget, css, post, page, sidebar, html 5
 License: GPLv2 or later
 Requires at least: 2.9
-Tested up to: 4.1
-Stable tag: 2.3.2
+Tested up to: 4.6
+Stable tag: 2.7.2
 
 Easy, Flexible Audio for WordPress.
 
 == Description ==
 
-= Mobile friendly HTML5 audio players and audio playlist players =
+= Mobile friendly HTML5 audio players and playlists =
 
-* Style and colour options for your audio players.
-* Flexible Music playlist players and single-file audio players.
-* Popout players and popout links, audio widget players, and smooth audio downloads.
+* Flexible multi-player audio plugin.
+* Near-continuous playback between pages.
+* Play from your media library, uploaded folders, and urls. 
+* Style, colour, and layout options.
+* Playlist and single file audio players
+* Popout players
+* Smooth downloads.
+* Login options for playing and downloading.
 * Works with all built-in WordPress options for adding your music, including the recently introduced *Create Audio Playlist* drag & drop interface.
 
 
 [Basic Demo - Showing the included player skins](http://mp3-jplayer.com/player-skins/) <br>
-[How to Add Your Players](http://mp3-jplayer.com/adding-players/) <br>
+[How to Add Audio Players](http://mp3-jplayer.com/adding-players/) <br>
 [Help & Docs main page](http://mp3-jplayer.com/help-docs/)
 
 
 MP3-jPlayer will expand WP's native shortcodes with new functions and options, giving you a lot of choice in how to set up your music playlists. Here's a few of the features:
 
-* Flexible multi-player audio plugin, add unlimited music players to pages, posts, sidebars, and template files.
-* Offer audio downloads to visitors or logged-in users.
-* Playlist folders with one simple feed folder command.
+* Add unlimited music players to pages, posts, sidebars, and template files.
+* Show the players to all visitors, or just logged-in users.
+* Offer downloads to visitors or logged-in users.
+* Playlist entire folders with a single line of shortcode.
 * Can be selectively integrated with WordPress default audio players.
 * Customise the colour scheme, fonts, title and image placements and more on the Player Design page.
 * A fully integrated Pop-out player that can be launched from playlist players, or from a stand-alone popout link.
@@ -90,6 +49,9 @@ MP3-jPlayer will expand WP's native shortcodes with new functions and options, g
 * Great compatibility across browsers / platforms. Works on iPhone, iPad, Android.
 * Editable player designs via CSS.
 * Multisite compatible.
+* Fully re-skinable.
+* Add-ons available such as stats collection.
+* Extensible plugin architecture and developer features. 
 
 
 See [the plugin's home page](http://mp3-jplayer.com) for info, demos, documentation, and help articles.
@@ -139,17 +101,64 @@ Either on the [forum at Wordpress](https://wordpress.org/support/plugin/mp3-jpla
 
 == Screenshots ==
 
-1. An example audio playlist player.
-2. A Popout playlist on a desktop.
-3. A single file music player and a music playlist.
-4. The plugin's Settings screen.
-5. The plugin's Design screen.
-6. Single-file Button audio players.
-7. Single-file Text music players. 
-8. A Popout player playing on an Android phone.
+1. Example single-file audio players.
+2. Example audio playlist players.
+3. Example single-file audio players with text buttons.
+4. A popout player on a desktop.
+5. A Popout playlist playing on an Android phone.
+6. The player Design screen.
+7. The Admin settings page. 
+8. Admin settings - Tab 2, Media Settings.
+9. Admin settings - Tab 3, Player Settings.
+10. Admin settings - Tab 4, Download Settings.
+11. Admin settings - Tab 5, Popout Settings.
+12. Admin settings - Tab 6, Advanced Settings.
+13. Help page examples at mp3-jplayer.com.
+14. More help page examples at mp3-jplayer.com.
 
 
 == Changelog ==
+
+= 2.7.2 =
+* Fixed the background colour fill on playlist items when displaying stat counts on the frontend.
+
+= 2.7.1 =
+* Added French translation files. Many thanks to [Txia](http://www.lyfoung.com/) for translating.
+
+= 2.7 =
+* Added option to show the players to logged in users only. This is a global option. The setting is at the top of the 'Advanced' tab on the settings page.
+* Fixed admin-side bug with the list colour pickers on the 'Design' page.
+* Removed redundant update routines.
+* Added developer methods for accessing the shortcode atts, and extending the js track objects.
+
+= 2.6 =
+* The plugin can now be translated. The .pot file is in the 'lang' folder of the plugin.
+
+= 2.5 =
+* New feature: Auto Resume, gives near-continuous audio between pages (there will be a short pause as the next page loads). Resuming will work wherever you have used the same piece of audio across pages.  
+* Updated the Settings page layout with clearer interfaces, better descriptions, and easier access to information.  
+* Added pagination controls to the Media Library files list on the settings page.
+* Updated plugin security.
+
+= 2.4.2 =
+* Added new developer hook on settings page (players tab), to support the upcoming Single Player Downloads add-on.
+* Updated javascript GMT methods with the current standard UTC methods. 
+
+= 2.4.1 =
+* Compatibility update for WordPress 4.3, see [this thread](https://make.wordpress.org/core/2015/07/02/deprecating-php4-style-constructors-in-wordpress-4-3/) for more info.
+* Fixed the settings page php notices that could occur in some scenarios.
+
+= 2.4 =
+* Added a simple colour scheme setting for the single file players that allows very easy theming.
+* Added new track title and captioning settings, allowing you to choose which ID3 data to display for your media library files. Choose from title, artist, album, caption, and upload date.
+* Added an option to flip the playlist player controls to the left. Use the modifier name 'flip' on the design page or in a shortcode.
+* Added an option to display track captions within the playlists.
+
+= 2.3.3 =
+* Added an option to use ID3 tag info for the track titles. The option is on the settings page under the files tab. Notes: 1)This option is for files uploaded to your media library only. 2)When selected players will display the title and artist info from the media's ID3 meta captured during upload. 3)This feature is supported in WP 3.6 and higher.
+* Added a settings page option for single file players to position the play button on the left or right hand side (equivalent to using the shortcode param 'flip').  
+* Fixed library title pickup that was failing in certain scenarios.
+* Added some new developer hooks.
 
 = 2.3.2 =
 * Fixed the pick-up of titles and images when playing attached audio using the playlist widget.

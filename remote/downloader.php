@@ -1,85 +1,143 @@
 <?php
 /*
-	Remote Downloader
-	MP3-jPlayer 1.8.5
-	www.sjward.org
+*	Remote Downloader	
+*	MP3-jPlayer 2.5
+*	http://mp3-jplayer.com
+*	---
 */
 
-function strip_scripts ( $field )
+
+//~~~ Flag
+function checkCharsOK ( $string ) 
+{	
+	$badChars = 0;
+	$charArray = str_split( $string );
+	
+	if ( is_array( $charArray ) ) {	
+		foreach ( $charArray as $char ) {
+			$ascii = ord( $char );
+			if ( 0 === $ascii ) { //null bytes
+				$badChars += 1;
+			}
+		}
+	} else {
+		$badChars += 1;
+	}	
+	return ( $badChars === 0 ? true : false );
+}
+
+
+//~~~ Clean
+function stripScripts ( $field ) 
 { 
 	$search = array(
-		'@<script[^>]*?>.*?</script>@si',  // Strip out javascript 
-		'@<style[^>]*?>.*?</style>@siU',    // Strip style tags properly 
-		'@<![\s\S]*?--[ \t\n\r]*>@'         // Strip multi-line comments including CDATA 
+		'@<script[^>]*?>.*?</script>@si',	// Javascript 
+		'@<style[^>]*?>.*?</style>@siU',    // Style tags 
+		'@<![\s\S]*?--[ \t\n\r]*>@',        // Multi-line comments including CDATA
+		'@%00@',							// Null bytes
+		'@\.\.@'							// Traversals
 	); 
-	
 	$text = preg_replace( $search, '', $field ); 
 	return $text; 
 }
 
 
-$mp3 = false;
-$playerID = "";
-$fp = "";
-$file = "";
-$dbug = "";
-$sent = "";
-$rooturl = preg_replace("/^www\./i", "", $_SERVER['HTTP_HOST']);
+
+// Start ~~~~~~~~~~~~~~~~~~~~~~
+
+$dbug 		= "";
+$sent 		= "";
+$mp3 		= false;
+$playerID 	= "";
+$fp 		= "";
+$file 		= "";
+$rooturl 	= preg_replace("/^www\./i", "", $_SERVER['HTTP_HOST']);
+
 
 if ( isset($_GET['mp3']) ) {
-
-	$mp3 = strip_tags($_GET['mp3']);
-	$mp3 = rawurldecode( $mp3 );
-	$mp3 = strip_scripts( $mp3 );
 	
+	
+	// Clean the url/path
+	$mp3 	= strip_tags($_GET['mp3']);
+	$mp3 	= rawurldecode( $mp3 );
+	$mp3 	= stripScripts( $mp3 );
+	$sent 	= substr($mp3, 3);
+	if ( ! checkCharsOK( $sent ) ) {
+		die();
+	}
+	
+	
+	// Clean player ID
 	$playerID = ( isset($_GET['pID']) ) ? strip_tags($_GET['pID']) : "";
-	$playerID = strip_scripts( $playerID );
-	
-	$matches = array();
-	if ( preg_match("!\.(mp3|mp4|m4a|ogg|oga|wav|webm)$!i", $mp3, $matches) ) {
+	$playerID = stripScripts( $playerID );
+	$playerID = preg_replace( '![^0-9]!', '', $playerID );
+	if ( $playerID == '' ) {
+		die();
+	}
 		
+	
+	// Check it's a valid file type
+	$matches = array();
+	if ( preg_match("!\.(mp3|mp4|m4a|ogg|oga|wav|webm)$!i", $mp3, $matches) ) 
+	{
+		
+		// Decide the mime type
 		$fileExtension = $matches[0];
 		if ( $fileExtension === 'mp3' || $fileExtension === 'mp4' || $fileExtension === 'm4a' ) {
 			$mimeType = 'audio/mpeg';
-		}
-		elseif( $fileExtension === 'ogg' || $fileExtension === 'oga' ) {
+		} elseif( $fileExtension === 'ogg' || $fileExtension === 'oga' ) {
 			$mimeType = 'audio/ogg';
-		}
-		else {
+		} else {
 			$mimeType = 'audio/' . ( str_replace('.', '', $fileExtension) );
 		}
 		
-		$sent = substr($mp3, 3);
-		$file = substr(strrchr($sent, "/"), 1);
 		
-		if ( ($lp = strpos($sent, $rooturl)) || preg_match("!^/!", $sent) ) { //if local
-			
-			if ( $lp !== false ) { //a url
-				
+		// Get the file's name
+		$file = substr( strrchr( $sent, "/" ), 1 );
+		
+		
+		// Check that the file is locally hosted
+		if ( ($lp = strpos($sent, $rooturl)) || preg_match("!^/!", $sent) ) 
+		{ 
+			if ( $lp !== false ) { 					
+				// It's url format, prep as path
 				$fp = str_replace($rooturl, "", $sent);
 				$fp = str_replace("www.", "", $fp);
 				$fp = str_replace("http://", "", $fp);
 				$fp = str_replace("https://", "", $fp);
-			
-			} else { //a folder path
-				
+			} else { 
+				// It's a path already
 				$fp = $sent;
 			}
 			
-			if ( ($fsize = @filesize($_SERVER['DOCUMENT_ROOT'] . $fp)) !== false ) { //if file can be read then set headers and cookie
+			
+			// Bail if path to the file is not valid
+			$realPath = realpath( $_SERVER['DOCUMENT_ROOT'] . $fp );
+			if ( $realPath === false ) {
+				die();
+			} 
+			
+			
+			// Try to send file
+			$fsize = @filesize( $realPath );
+			if ( $fsize !== false ) { 
 				
+				//set headers and cookie
+				header('Content-Type: ' . $mimeType);
+				$cookiename = 'mp3Download' . $playerID;
+				setcookie($cookiename, "true", 0, '/', '', '', false);
 				header('Accept-Ranges: bytes');  // download resume
 				header('Content-Disposition: attachment; filename=' . $file);
-				header('Content-Type: ' . $mimeType);
 				header('Content-Length: ' . $fsize);
 				
-				@readfile($_SERVER['DOCUMENT_ROOT'] . $fp);
+				//Send the file
+				readfile( $realPath );
 				
-				//if past the readfile then something went wrong
-				$dbug .= "#read failed";
+				//If past readfile() then something went wrong
+				$dbug .= "#read failed"; 
 				
 			} else {
-				
+			
 				$dbug .= "#no file";
 			}
 				
@@ -102,22 +160,7 @@ if ( isset($_GET['mp3']) ) {
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Download Audio</title>
 	</head>
-	<body>
-		
-		<?php 
-		$info = "<p>
-			Get: " . $mp3 . "<br />
-			Sent: " . $sent . "<br />
-			File: " . $file . "<br />
-			Open: " . $_SERVER['DOCUMENT_ROOT'] . $fp . "<br />
-			Root: " . $rooturl . "<br />
-			pID: " . $playerID . "<br />
-			Dbug: " . $dbug . "<br /></p>";
-		
-		echo $info;
-		?>	
-
+	<body>	
 	</body>
 </html>

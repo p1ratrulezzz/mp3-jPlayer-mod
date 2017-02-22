@@ -10,24 +10,22 @@ if ( class_exists("WP_Widget") ) {
 		
 		class MP3_jPlayer extends WP_Widget	{
 
-			/* Constructor (required by api) */
-			function MP3_jPlayer() {
-				
+			function __construct () 
+			{ 
 				$widget_ops = array( 
 					'classname' => 'mp3jplayerwidget', 
-					'description' => __('Adds a playlist player. Choose playback mode and options.', 
-					'mp3jplayerwidget') 
+					'description' => __('Adds a playlist player. Choose playback mode and options.', 'mp3-jplayer' ) 
 				);
 				$control_ops = array( 
 					'id_base' => 'mp3-jplayer-widget'
 				);
-				$this->WP_Widget( 'mp3-jplayer-widget', __('MP3-jPlayer|Playlister', 'mp3jplayerwidget'), $widget_ops, $control_ops );
+				parent::__construct( 'mp3-jplayer-widget', __( 'MP3-jPlayer|Playlister', 'mp3-jplayer' ), $widget_ops, $control_ops );
 			}
 		
 		
 			/*	Sets up widget playlist and writes player (required by api) */
-			function widget( $args, $instance ) {
-				
+			function widget( $args, $instance )
+			{
 				global $MP3JP;
 				
 				$MP3JP->dbug['str'] .= "\n### Checking UI widget...";
@@ -135,8 +133,8 @@ if ( class_exists("WP_Widget") ) {
 			
 			
 			/*	Updates the widget settings (required by api) */			
-			function update( $new_instance, $old_instance ) {
-				
+			function update( $new_instance, $old_instance )
+			{
 				global $MP3JP;
 				
 				$instance = $old_instance;
@@ -189,8 +187,8 @@ if ( class_exists("WP_Widget") ) {
 
 			
 			/*	Creates defaults and writes widget panel (required by api) */						
-			function form( $instance ) {
-			
+			function form( $instance )
+			{
 				global $MP3JP;
 				$MP3JP->theSettings = get_option('mp3FoxAdminOptions');
 				
@@ -226,25 +224,25 @@ if ( class_exists("WP_Widget") ) {
 				$helptext_col = "color:#a0a0a0;";
 				?>					
 					
-					<h3>Play Mode:</h3>
-					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_0" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="0" <?php if ($instance['widget_mode'] == "0") { _e('checked="checked"', "mp3jplayerwidget"); }?> /> 
-					<label style="padding:0; margin:0;" for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_0"><strong>Play Attached audio</strong></label>
-					<p style="margin:3px 0 15px 18px;"><span class="description">Automatically adds a player on SINGLE posts/pages when they have audio attachments.</span></p>
+					<h3><?php _e( 'Play Mode:', 'mp3-jplayer' ); ?></h3>
+					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_0" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="0" <?php if ($instance['widget_mode'] == "0") { echo 'checked="checked"'; }?> /> 
+					<label style="padding:0; margin:0;" for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_0"><strong><?php _e( 'Play Attached audio', 'mp3-jplayer' ); ?></strong></label>
+					<p style="margin:3px 0 15px 18px;"><span class="description"><?php _e( 'Automatically adds a player on SINGLE posts/pages when they have audio attachments.', 'mp3-jplayer' ); ?></span></p>
 					
-					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_1" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="1" <?php if ($instance['widget_mode'] == "1") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-					<label for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_1"><strong>Play Custom fields</strong></label> 
-					<p style="margin:3px 0 15px 18px;"><span class="description">Automatically adds a player on SINGLE posts/pages, if you have used custom fields to make a playlist.</span></p>
+					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_1" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="1" <?php if ($instance['widget_mode'] == "1") { echo 'checked="checked"'; }?> />
+					<label for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_1"><strong><?php _e( 'Play Custom fields', 'mp3-jplayer' ); ?></strong></label> 
+					<p style="margin:3px 0 15px 18px;"><span class="description"><?php _e( 'Automatically adds a player on SINGLE posts/pages, if you have used custom fields to make a playlist.', 'mp3-jplayer' ); ?></span></p>
 					
-					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_2" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="2" <?php if ($instance['widget_mode'] == "2") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-					<label for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_2"><strong>Write a Playlist...</strong></label>
-					<p style="margin:3px 0 10px 18px;"><span class="description">A <code><?php echo $MP3JP->theSettings['f_separator']; ?></code> separated list of URI's, library/default folder filenames, or FEEDs.</span></p>
+					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_2" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="2" <?php if ($instance['widget_mode'] == "2") { echo 'checked="checked"'; }?> />
+					<label for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_2"><strong><?php _e( 'Write a Playlist...', 'mp3-jplayer' ); ?></strong></label>
+					<p style="margin:3px 0 10px 18px;"><span class="description"><?php _e( 'A list of URLs, library/default folder filenames, or FEEDs, separated by', 'mp3-jplayer' ); ?></span> <code><?php echo $MP3JP->theSettings['f_separator']; ?></code></p>
 					<div style="margin:0px 0 15px 24px;"><textarea class="widefat" style="font-size:11px;" rows="4" cols="80" id="<?php echo $this->get_field_id( 'arb_playlist' ); ?>" name="<?php echo $this->get_field_name( 'arb_playlist' ); ?>"><?php echo $instance['arb_playlist']; ?></textarea></div>
 					
-					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_3" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="3" <?php if ($instance['widget_mode'] == "3") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-					<label for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_3"><strong>Generate Playlist...</strong></label>
+					<input type="radio" id="<?php echo $this->get_field_id( 'widget_mode' ); ?>_3" name="<?php echo $this->get_field_name( 'widget_mode' ); ?>" value="3" <?php if ($instance['widget_mode'] == "3") { echo 'checked="checked"'; }?> />
+					<label for="<?php echo $this->get_field_id( 'widget_mode' ); ?>_3"><strong><?php _e( 'Generate Playlist...', 'mp3-jplayer' ); ?></strong></label>
 					<div style="margin-left:24px;">
-						<p style="margin-bottom:0px;"><input type="checkbox" id="<?php echo $this->get_field_id( 'play_library' ); ?>" name="<?php echo $this->get_field_name( 'play_library' ); ?>" value="true" <?php if ($instance['play_library'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							My library</p>
+						<p style="margin-bottom:0px;"><input type="checkbox" id="<?php echo $this->get_field_id( 'play_library' ); ?>" name="<?php echo $this->get_field_name( 'play_library' ); ?>" value="true" <?php if ($instance['play_library'] == "true") { echo 'checked="checked"'; }?> />
+							<?php _e( 'My library', 'mp3-jplayer' ); ?></p>
 							
 						<?php
 						$folder = $instance['folder_to_play'];
@@ -260,132 +258,133 @@ if ( class_exists("WP_Widget") ) {
 								$txt .= "&nbsp; available";
 							} else {
 								$style = "color:#aaa;";
-								$txt = "There are no audio files here";
+								$txt = __( 'There are no audio files here', 'mp3-jplayer' );
 							}
 						} 
 						elseif ( $fdetails === true )
 						{
-							$txt = "Folder not found, check path<br />and permissions";
+							$txt = __( 'Folder not found, check path and permissions', 'mp3-jplayer' ); 
 							$style = "color:#dfad00;";
 						}
 						else
 						{
-							$txt = "x Remote or inaccessible folder";
+							$txt = __( 'Remote or inaccessible folder', 'mp3-jplayer' );
 							$style = "color:#f56b0f;";
 						}
 						?>
-						<p style="margin-top:2px; margin-bottom:5px;"><input type="checkbox" id="<?php echo $this->get_field_id( 'play_folder' ); ?>" name="<?php echo $this->get_field_name( 'play_folder' ); ?>" value="true" <?php if ($instance['play_folder'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							A folder: &nbsp;
+						<p style="margin-top:2px; margin-bottom:5px;"><input type="checkbox" id="<?php echo $this->get_field_id( 'play_folder' ); ?>" name="<?php echo $this->get_field_name( 'play_folder' ); ?>" value="true" <?php if ($instance['play_folder'] == "true") { echo 'checked="checked"'; }?> />
+							<?php _e( 'A folder:', 'mp3-jplayer' ); ?> &nbsp;
 							<input class="widefat" type="text" style="max-width:200px; font-size:12px;" id="<?php echo $this->get_field_id( 'folder_to_play' ); ?>" name="<?php echo $this->get_field_name( 'folder_to_play' ); ?>" value="<?php echo $instance['folder_to_play']; ?>" /></p>
 						<p class="description" style="margin:0px 0px 0px 80px; font-size:12px; font-weight:700; <?php echo $style; ?>"><?php echo $txt; ?></p>
 					</div>
 					
 	
 					<hr/>
-					<h3>Player Settings:</h3>
+					<h3><?php _e( 'Player Settings:', 'mp3-jplayer' ); ?></h3>
 					
 					<div style="float:left; margin:0 30px 0 0; padding:6px 0 20px 0;">
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'autoplay' ); ?>" name="<?php echo $this->get_field_name( 'autoplay' ); ?>" value="true" <?php if ($instance['autoplay'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Autoplay</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'autoplay' ); ?>" name="<?php echo $this->get_field_name( 'autoplay' ); ?>" value="true" <?php if ($instance['autoplay'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Autoplay', 'mp3-jplayer' ); ?></strong></p>
 						
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'loop' ); ?>" name="<?php echo $this->get_field_name( 'loop' ); ?>" value="true" <?php if ($instance['loop'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Repeat</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'loop' ); ?>" name="<?php echo $this->get_field_name( 'loop' ); ?>" value="true" <?php if ($instance['loop'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Repeat', 'mp3-jplayer' ); ?></strong></p>
 						
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'playlist_mode' ); ?>" name="<?php echo $this->get_field_name( 'playlist_mode' ); ?>" value="true" <?php if ($instance['playlist_mode'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Show playlist</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'playlist_mode' ); ?>" name="<?php echo $this->get_field_name( 'playlist_mode' ); ?>" value="true" <?php if ($instance['playlist_mode'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Show playlist', 'mp3-jplayer' ); ?></strong></p>
 							
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'images' ); ?>" name="<?php echo $this->get_field_name( 'images' ); ?>" value="true" <?php if ($instance['images'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Show images</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'images' ); ?>" name="<?php echo $this->get_field_name( 'images' ); ?>" value="true" <?php if ($instance['images'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Show images', 'mp3-jplayer' ); ?></strong></p>
 						
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'stop_button' ); ?>" name="<?php echo $this->get_field_name( 'stop_button' ); ?>" value="true" <?php if ($instance['stop_button'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Stop button</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'stop_button' ); ?>" name="<?php echo $this->get_field_name( 'stop_button' ); ?>" value="true" <?php if ($instance['stop_button'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Stop button', 'mp3-jplayer' ); ?></strong></p>
 							
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'pn_buttons' ); ?>" name="<?php echo $this->get_field_name( 'pn_buttons' ); ?>" value="true" <?php if ($instance['pn_buttons'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Prev/next</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'pn_buttons' ); ?>" name="<?php echo $this->get_field_name( 'pn_buttons' ); ?>" value="true" <?php if ($instance['pn_buttons'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Prev/next', 'mp3-jplayer' ); ?></strong></p>
 						
 						
 						
-						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'shuffle' ); ?>" name="<?php echo $this->get_field_name( 'shuffle' ); ?>" value="true" <?php if ($instance['shuffle'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-							<strong>Shuffle</strong></p>
+						<p style="margin:0 0 2px 0;"><input type="checkbox" id="<?php echo $this->get_field_id( 'shuffle' ); ?>" name="<?php echo $this->get_field_name( 'shuffle' ); ?>" value="true" <?php if ($instance['shuffle'] == "true") { echo 'checked="checked"'; }?> />
+							<strong><?php _e( 'Shuffle', 'mp3-jplayer' ); ?></strong></p>
 					</div>
 					
 					<div style="float:right; padding:0px 0 10px 0;">
 						<table>
 							<tr>
-								<td><strong>Volume</strong>:</td>
+								<td><strong><?php _e( 'Volume', 'mp3-jplayer' ); ?></strong>:</td>
 								<td><input class="widefat" style="width:40px; text-align:right;" type="text" id="<?php echo $this->get_field_id( 'volume' ); ?>" name="<?php echo $this->get_field_name( 'volume' ); ?>" value="<?php echo $instance['volume']; ?>" /> 
 									<span class="description">(0 - 100)</span></td>
 							</tr>
 						
 							<tr>
-								<td><strong>Pick</strong>:</td>
+								<td><strong><?php _e( 'Pick', 'mp3-jplayer' ); ?></strong>:</td>
 								<td><input class="widefat" style="width:40px; text-align:right;" type="text" id="<?php echo $this->get_field_id( 'slice_size' ); ?>" name="<?php echo $this->get_field_name( 'slice_size' ); ?>" value="<?php echo $instance['slice_size']; ?>" />
-									&nbsp;<span class="description">track(s)</span></td>
+									&nbsp;<span class="description"><?php _e( 'track(s)', 'mp3-jplayer' ); ?></span></td>
 							</tr>
 							<tr>
-								<td><strong>Download</strong>:</td>
+								<td><strong><?php _e( 'Download', 'mp3-jplayer' ); ?></strong>:</td>
 										<td><select id="<?php echo $this->get_field_id( 'download_link' ); ?>" name="<?php echo $this->get_field_name( 'download_link' ); ?>" class="widefat" style="max-width:100px;">
-												<option value="true" <?php if ( 'true' == $instance['download_link'] ) { echo 'selected="selected"'; } ?>>Yes</option>
-												<option value="false" <?php if ( 'false' == $instance['download_link'] ) { echo 'selected="selected"'; } ?>>No</option>
-												<option value="loggedin" <?php if ( 'loggedin' == $instance['download_link'] ) { echo 'selected="selected"'; } ?>>Logged in</option>
+												<option value="true" <?php if ( 'true' == $instance['download_link'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Yes', 'mp3-jplayer' ); ?></option>
+												<option value="false" <?php if ( 'false' == $instance['download_link'] ) { echo 'selected="selected"'; } ?>><?php _e( 'No', 'mp3-jplayer' ); ?></option>
+												<option value="loggedin" <?php if ( 'loggedin' == $instance['download_link'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Logged in', 'mp3-jplayer' ); ?></option>
 											</select></td>
 							</tr>
 							<tr>
-								<td><strong>Width</strong>:</td>
+								<td><strong><?php _e( 'Width', 'mp3-jplayer' ); ?></strong>:</td>
 								<td><input class="widefat" style="max-width:100px;" type="text" id="<?php echo $this->get_field_id( 'player_width' ); ?>" name="<?php echo $this->get_field_name( 'player_width' ); ?>" value="<?php echo $instance['player_width']; ?>" /></td>
 							</tr>
 							<tr>
-								<td><strong>Height</strong>:</td>
+								<td><strong><?php _e( 'Height', 'mp3-jplayer' ); ?></strong>:</td>
 								<td><input class="widefat" style="max-width:100px;" type="text" id="<?php echo $this->get_field_id( 'player_height' ); ?>" name="<?php echo $this->get_field_name( 'player_height' ); ?>" value="<?php echo $instance['player_height']; ?>" /></td>
 							</tr>
 							<tr>
-								<td><strong>Align</strong>:</td>
+								<td><strong><?php _e( 'Align', 'mp3-jplayer' ); ?></strong>:</td>
 								<td><select id="<?php echo $this->get_field_id( 'position' ); ?>" name="<?php echo $this->get_field_name( 'position' ); ?>" class="widefat" style="max-width:100px;">
-										<option value="rel-L" <?php if ( 'rel-L' == $instance['position'] ) { echo 'selected="selected"'; } ?>>Left</option>
-										<option value="rel-C" <?php if ( 'rel-C' == $instance['position'] ) { echo 'selected="selected"'; } ?>>Centre</option>
-										<option value="rel-R" <?php if ( 'rel-R' == $instance['position'] ) { echo 'selected="selected"'; } ?>>Right</option>
-										<option value="left" <?php if ( 'left' == $instance['position'] ) { echo 'selected="selected"'; } ?>>Float left</option>
-										<option value="right" <?php if ( 'right' == $instance['position'] ) { echo 'selected="selected"'; } ?>>Float right</option>
+										<option value="rel-L" <?php if ( 'rel-L' == $instance['position'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Left', 'mp3-jplayer' ); ?></option>
+										<option value="rel-C" <?php if ( 'rel-C' == $instance['position'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Centre', 'mp3-jplayer' ); ?></option>
+										<option value="rel-R" <?php if ( 'rel-R' == $instance['position'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Right', 'mp3-jplayer' ); ?></option>
+										<option value="left" <?php if ( 'left' == $instance['position'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Float left', 'mp3-jplayer' ); ?></option>
+										<option value="right" <?php if ( 'right' == $instance['position'] ) { echo 'selected="selected"'; } ?>><?php _e( 'Float right', 'mp3-jplayer' ); ?></option>
 									</select></td>
 							</tr>
 						</table>
 					</div>
 					
 					<br class="clear">
-					<strong>Style</strong>:<br>
-					<input class="widefat" style="max-width:80%;" type="text" id="<?php echo $this->get_field_id( 'style' ); ?>" name="<?php echo $this->get_field_name( 'style' ); ?>" value="<?php echo $instance['style']; ?>" />&nbsp; <a href="<?php echo $MP3JP->PluginFolder; ?>/style-param-help.htm">Help</a>
+					<strong><?php _e( 'Style', 'mp3-jplayer' ); ?></strong>:<br>
+					<input class="widefat" style="max-width:80%;" type="text" id="<?php echo $this->get_field_id( 'style' ); ?>" name="<?php echo $this->get_field_name( 'style' ); ?>" value="<?php echo $instance['style']; ?>" />
 						
 					
 					
 					
 					
 					<br><br><br><hr/>
-					<h3>Widget Heading:</h3>
+					<h3><?php _e( 'Widget Heading:', 'mp3-jplayer' ); ?></h3>
 					<input class="widefat" type="text" id="<?php echo $this->get_field_id( 'title' ); ?>" name="<?php echo $this->get_field_name( 'title' ); ?>" value="<?php echo $instance['title']; ?>" />
 					
 					
 					
 					<br>
-					<h3>Page Filter:</h3>
-					<p style="line-height:200%; margin-top:-10px;"><strong>Include</strong> 
-						<input type="radio" id="<?php echo $this->get_field_id( 'restrict_mode' ); ?>" name="<?php echo $this->get_field_name( 'restrict_mode' ); ?>" value="include" <?php if ($instance['restrict_mode'] == "include") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-						or&nbsp;
-						<input type="radio" id="<?php echo $this->get_field_id( 'restrict_mode' ); ?>" name="<?php echo $this->get_field_name( 'restrict_mode' ); ?>" value="exclude" <?php if ($instance['restrict_mode'] == "exclude") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
-						<strong>Exclude</strong> &nbsp;
+					<h3><?php _e( 'Page Filter:', 'mp3-jplayer' ); ?></h3>
+					<p style="line-height:200%; margin-top:-10px;"><strong><?php _e( 'Include', 'mp3-jplayer' ); ?></strong> 
+						<input type="radio" id="<?php echo $this->get_field_id( 'restrict_mode' ); ?>" name="<?php echo $this->get_field_name( 'restrict_mode' ); ?>" value="include" <?php if ($instance['restrict_mode'] == "include") { echo 'checked="checked"'; }?> />
+						<?php _e( 'or', 'mp3-jplayer' ); ?>&nbsp;
+						<input type="radio" id="<?php echo $this->get_field_id( 'restrict_mode' ); ?>" name="<?php echo $this->get_field_name( 'restrict_mode' ); ?>" value="exclude" <?php if ($instance['restrict_mode'] == "exclude") { echo 'checked="checked"'; }?> />
+						<strong><?php _e( 'Exclude', 'mp3-jplayer' ); ?></strong> &nbsp;
 						<input class="widefat" style="font-size:11px; max-width:200px;" type="text" id="<?php echo $this->get_field_id( 'restrict_list' ); ?>" name="<?php echo $this->get_field_name( 'restrict_list' ); ?>" value="<?php echo $instance['restrict_list']; ?>" />
 					</p>
-					<p style="line-height:140%; margin-top:-8px; margin-bottom:20px;"><span>A comma separated list, it can contain <code>index</code>, <code>archive</code>, <code>post</code>, <code>search</code>, and any <strong>post IDs</strong>.</span></p>
+					<p style="line-height:140%; margin-top:-8px; margin-bottom:20px;"><span><?php _e( 'A comma separated list, it can contain <code>index</code>, <code>archive</code>, <code>post</code>, <code>search</code>, and any <strong>post IDs</strong>.', 'mp3-jplayer' ); ?></span></p>
 					
 					
 					
 					<!--retired-->
-					<div style="display:none;"><input type="checkbox" id="<?php echo $this->get_field_id( 'play_page' ); ?>" name="<?php echo $this->get_field_name( 'play_page' ); ?>" value="true" <?php if ($instance['play_page'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
+					<div style="display:none;"><input type="checkbox" id="<?php echo $this->get_field_id( 'play_page' ); ?>" name="<?php echo $this->get_field_name( 'play_page' ); ?>" value="true" <?php if ($instance['play_page'] == "true") { echo 'checked="checked"'; }?> />
 						From page ID &nbsp;
 						<input class="widefat" style="width:55px;" type="text" id="<?php echo $this->get_field_id( 'id_to_play' ); ?>" name="<?php echo $this->get_field_name( 'id_to_play' ); ?>" value="<?php echo $instance['id_to_play']; ?>" />
-						<input type="checkbox" id="<?php echo $this->get_field_id( 'mods' ); ?>" name="<?php echo $this->get_field_name( 'mods' ); ?>" value="true" <?php if ($instance['mods'] == "true") { _e('checked="checked"', "mp3jplayerwidget"); }?> />
+						<input type="checkbox" id="<?php echo $this->get_field_id( 'mods' ); ?>" name="<?php echo $this->get_field_name( 'mods' ); ?>" value="true" <?php if ($instance['mods'] == "true") { echo 'checked="checked"'; }?> />
 					</div>
 					
 					<hr/><br>
+					
 					
 			<?php	
 			}

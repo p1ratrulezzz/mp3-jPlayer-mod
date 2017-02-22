@@ -1,10 +1,8 @@
 /* 
 	MP3-jPlayer
-	Version 2.3.1
+	Version 2.7.2
    	http://mp3-jplayer.com
-	2015 Simon Ward
 */
-
 var MP3_JPLAYER = {
 	
 	tID:			'',
@@ -25,6 +23,7 @@ var MP3_JPLAYER = {
 	jpID:			'#mp3_jplayer_1_8',
 	plugin_path:	'',
 	lastformats:	'mp3',
+	popoutformats:	'mp3',
 	allowRanges:	true,
 	extCalls:		{ 
 		init:[],
@@ -50,6 +49,9 @@ var MP3_JPLAYER = {
 	exThresh:		2,
 	showErrors:		false,
 	factors:		{ vol: 1 },
+	hasListMeta:	true,
+	pickup:			true,
+	pRefs:			{ id: false, tr: false, pt: 0, vol: 100 },
 	
 	vars: {
 		play_f:				true,
@@ -85,6 +87,7 @@ var MP3_JPLAYER = {
 		dload: 		'#download_mp3j_',
 		plwrap: 	'#L_mp3j_',
 		ul:			'#UL_mp3j_',
+		li:			'li_mp3j_', //No hash!
 		a:			'mp3j_A_', //No hash!
 		indiM:		'#statusMI_',
 		toglist:	'#playlist-toggle_',
@@ -100,14 +103,71 @@ var MP3_JPLAYER = {
 		}
 	},
 	
-	initialise_jp: function ( supplied, track, vol ) {
+	findFile: function ( file ) {
+		var i,
+			p, 
+			list,
+			l,			
+			j,
+			id = false,
+			tr = false;
+			
+		//if ( typeof MP3jPLAYERS  !== "undefined" ) {
+			//for ( i in MP3jPLAYERS ) {
+				//p = MP3jPLAYERS[ i ];
+		if ( typeof this.pl_info  !== "undefined" ) {
+			for ( i in this.pl_info ) {
+				p = this.pl_info[ i ];
+				list = p.list;
+				if ( p.type === 'MI' ) {
+					l = list.length;
+					for ( j = 0; j < l; j += 1 ) { 
+						if ( file === list[ j ].mp3 ) {
+							id = i;
+							tr = j;
+							break;
+						}						
+					}
+				} else if ( p.type === 'single' ) {
+					if ( file === list[ p.tr ].mp3 ) {
+						id = i;
+						tr = p.tr;
+						break;
+					}
+				}
+				if ( id !== false ) {
+					break;
+				}
+			}
+		}
+		return { id: id, tr: tr };
+	},
+	
+	getFormats: function ( player ) {
+		return player.list[ player.tr ].formats[0] + ( ( typeof player.list[ player.tr ].formats[1] !== 'undefined' ) ? ',' + player.list[ player.tr ].formats[1] : '' );
+	},
+	
+	initialise_jp: function ( supplied, track, vol ) { 
 		var that = this;
 		jQuery(this.jpID).jPlayer({
 			ready: function () {
 				if ( track === true ) { 
 					var dinfo = that.deviceInfo();
 					if ( dinfo.device === 'Desk/Laptop' ) {
-						that.startup();
+						if ( that.pickup ) {
+							if ( that.pRefs.id === false ) {
+								that.startup();
+							} else {
+								var puVol = parseFloat( that.pRefs.vol );
+								that.pl_info[ that.pRefs.id ].vol = puVol;
+								jQuery( that.eID.vol + that.pRefs.id ).slider({ value: puVol });  
+								
+								that.E_change_track( that.pRefs.id, that.pRefs.tr, parseFloat( that.pRefs.pt ) );
+								that.write_cookie( 'mjp_pickup', '', -1 );
+							}
+						} else {
+							that.startup();
+						}
 					} else { //just remove first autolay if there's any
 						var j;
 						for ( j in that.pl_info ) {
@@ -163,12 +223,50 @@ var MP3_JPLAYER = {
 		that.lastformats = supplied;
 	},	
 	
+	writePickupData: function () {
+		if ( 'playing' === this.state ) {
+			var p = this.pl_info[ this.tID ];
+			var preppedurl = p.list[ p.tr ].mp3.replace( /;/, ':::' );
+			var valuestring = this.played_t + '?' + p.vol + '?' + preppedurl;
+			this.write_cookie( 'mjp_pickup', valuestring, 0.0001 );
+		} else {
+			this.write_cookie( 'mjp_pickup', '', -1 );
+		}
+	},
+	
+	getPlayerRefs: function () {
+		var playerRefs = { id: false, tr: false, pt: false, vol:false };
+		var cvals = this.read_cookie( 'mjp_pickup' );
+		if ( cvals !== false ) {
+			var cparts = cvals.split('?');
+			var depreppedurl = cparts[2].replace( /:::/, ';' );
+			playerRefs = ( typeof cparts[2] !== 'undefined' ) ? this.findFile( depreppedurl ) : playerRefs;
+			playerRefs.pt = ( typeof cparts[0] !== 'undefined' ) ? cparts[0] : 0;
+			playerRefs.vol = ( typeof cparts[1] !== 'undefined' ) ? cparts[1] : 100;
+		}
+		return playerRefs;					
+	},
+	
 	init: function () {
 		var plpath;
 		plpath = this.plugin_path.split('/');
 		this.dl_domain = plpath[2].replace(/^www./i, "");
-		
 		this.unwrap();
+		if ( this.pickup ) {
+			jQuery('a').on( 'click', function ( e ) {
+				MP3_JPLAYER.writePickupData();
+			});
+			var prefs = this.getPlayerRefs();
+			if ( prefs.id !== false ) {
+				var p = this.pl_info[ prefs.id ];
+				this.lastformats = this.getFormats( p );
+				this.pRefs.id = prefs.id;
+				this.pRefs.tr = prefs.tr;
+				this.pRefs.pt = prefs.pt;
+				this.pRefs.vol = prefs.vol;
+			}
+		}
+		
 		this.write_controls();
 		this.add_jpconstruct_div();
 		this.runExternals( 'init', {} );
@@ -428,14 +526,24 @@ var MP3_JPLAYER = {
 				
 				var liClass = '';
 				var l = p.list.length;
-				jQuery(this.eID.ul + j).empty();
+				jQuery(this.eID.ul + j).empty(); 
 				for (i = 0; i < l; i += 1) {
 					liClass = ( i === l-1 ) ? ' mjp-li-last' : '';
-					li = '<li class="li-mjp' + liClass + '"><a class="a-mjp" href="#" id="' + this.eID.a + j + '_' + i + '">' + p.list[i].name + '</a></li>';
+					li = '<li class="li-mjp' + liClass + '" id="' + this.eID.li + j + '_' + i + '"><a class="a-mjp" href="#" id="' + this.eID.a + j + '_' + i + '">';
+					li += p.list[i].name;
+					if ( this.hasListMeta && p.list[i].artist !== '' ) {
+						li += '<br><span>' + p.list[i].artist + '</span>';
+					}
+					li += '</a>';
+					li += '<div class="mjp_ext_li" id="mjp_ext_li_' + j + '_' + i + '"></div><div class="emjp_clear"></div>';
+					li += '</li>';
+					
+					
 					jQuery(this.eID.ul + j).append(li);
 					this.add_ul_click(j, i);
 				}
 				jQuery('#' + this.eID.a + j + '_' + p.tr).addClass('mp3j_A_current');
+				jQuery('#' + this.eID.li + j + '_' + p.tr).addClass('mp3j_LI_current');
 				jQuery(this.eID.toglist + j).click(function () {
 					that.togglelist(j);
 				});
@@ -593,12 +701,12 @@ var MP3_JPLAYER = {
 		this.pl_info[j].tr = 0;
 	},
 	
-	E_change_track: function (j, change) {
+	E_change_track: function ( j, change, secsIn ) {
 		var track;
 		var txt;
 		var p = this.pl_info[j];
 		
-		this.runExternals( 'change_begin', { id: j, change: change } );
+		this.runExternals( 'change_begin', { id: j, change: change } );		
 		
 		if (j === this.tID && change === p.tr) {
 			if ('playing' === this.state) {
@@ -648,7 +756,7 @@ var MP3_JPLAYER = {
 		p.tr = track;
 		this.tID = j;
 		
-		var formatString = p.list[track].formats[0] + ( (typeof p.list[track].formats[1] !== 'undefined') ? ',' + p.list[track].formats[1] : '' );
+		var formatString = this.getFormats( p );
 		if ( formatString !== this.lastformats || this.jperrorIDs[ j ] ) {
 			this.jperrorIDs[ j ] = false;
 			this.destroy_jp();
@@ -656,10 +764,9 @@ var MP3_JPLAYER = {
 		} else {
 			this.jperrorIDs[ j ] = false;
 			this.setAudio( p.list[track] );
-			this.playit();
+			this.playit( secsIn );
 			jQuery(this.jpID).jPlayer("volume", this.factors.vol * p.vol/100 ); //Reset to correct vol
 		}
-		
 		exData.mp3 = p.list[track].mp3;
 		exData.name = p.list[track].name;
 		exData.artist = p.list[track].artist;
@@ -668,10 +775,11 @@ var MP3_JPLAYER = {
 	},
 	
 	E_launchPP: function (j) {
+		this.writePickupData();
+		this.popoutformats = this.lastformats;
 		this.launched_ID = j;
 		this.was_playing = ( this.state === "playing" ) ? true : false;
 		var data = { id: this.launched_ID, playing: this.was_playing };
-		
 		this.runExternals( 'button_popout', data );
 		
 		if ( this.tID !== '' ) {
@@ -708,9 +816,13 @@ var MP3_JPLAYER = {
 		jQuery(this.jpID).jPlayer( "setMedia", media );
 	},
 	
-	playit: function () {
+	playit: function ( secs ) {
 		this.state = 'playing';
-		jQuery(this.jpID).jPlayer("play");
+		if ( typeof secs === 'undefined' ) {
+			jQuery( this.jpID ).jPlayer("play");
+		} else {
+			jQuery( this.jpID ).jPlayer( "play",  secs );
+		}
 	},
 	pauseit: function () {
 		this.state = 'paused';
@@ -735,7 +847,9 @@ var MP3_JPLAYER = {
 	
 	listclass: function ( j, rem, add ) {
 		jQuery('#'+ this.eID.a + j +'_'+ rem).removeClass('mp3j_A_current');
+		jQuery('#'+ this.eID.li + j +'_'+ rem).removeClass('mp3j_LI_current');
 		jQuery('#'+ this.eID.a + j +'_'+ add).addClass('mp3j_A_current');
+		jQuery('#'+ this.eID.li + j +'_'+ add).addClass('mp3j_LI_current');
 	},
 	
 	titles: function ( j, track ) {
@@ -755,15 +869,16 @@ var MP3_JPLAYER = {
 				jQuery(this.eID.img + j).empty().hide().append(Olink + '<img src="' + p.list[track].image + '" />' + Clink).fadeIn(300);
 			}
 		}
-		data = { title: p.list[track].name, caption: p.list[track].artist, id: j };
+		data = { title: p.list[track].name, caption: p.list[track].artist, id: j, track: track };
 		this.runExternals( 'write_titles', data );
 	},
 	
-	writedownload: function ( j, track ) {
+	writedownload: function ( j, track, text ) {
 		var data;
 		var p = this.pl_info[j];
+		text = ( typeof text === 'undefined' ) ? this.vars.dload_text : text;
 		if ( p.download ) {
-			jQuery(this.eID.dload + j).empty().removeClass('whilelinks').append('<a id="mp3j_dlanchor_' + j + '" href="' + p.list[track].mp3 + '" target="_blank">' + this.vars.dload_text + '</a>');
+			jQuery(this.eID.dload + j).empty().removeClass('whilelinks').append('<a id="mp3j_dlanchor_' + j + '" href="' + p.list[track].mp3 + '" target="_blank">' + text + '</a>');
 			if ( this.vars.force_dload === true ) {
 				this.dl_button_click( j );
 			}
@@ -844,7 +959,6 @@ var MP3_JPLAYER = {
 					isMobile = true;
 				}
 			}
-			
 			if ( ! isMobile ) {
 				if ( /Mac/.test( p ) ) {
 					os = 'Mac';
@@ -862,12 +976,6 @@ var MP3_JPLAYER = {
 	}
 };
 
-
-/* 
- *	Force browser download
- *	Version 1.1
- *	2014 Simon Ward
-*/
 MP3_JPLAYER.dl_button_click = function ( j ) {
 	var that = this, p = this.pl_info[j];
 	jQuery('#mp3j_dlanchor_' + j).click(function (e) {
@@ -895,7 +1003,6 @@ MP3_JPLAYER.dl_runinfo = function ( get, j, e ) {
 		is_local = this.is_local_dload( get );
 	
 	var enc_get;
-	
 	if ( !this.intervalIDs[ j ] && !this.timeoutIDs[ j ] ) { //if timers not already running for this player
 		can_write = this.write_cookie('mp3Download' + j, 'waiting', '');
 		if ( is_local ) {
@@ -978,7 +1085,6 @@ MP3_JPLAYER.dl_dialogue = function ( j, text, state ) {
 		}
 		jQuery('#mp3j_finfo_' + j).fadeOut(1000);
 	}
-	
 	this.runExternals( 'download_dialog', { id: j, text: text, state: state } );
 };
 
@@ -1000,7 +1106,7 @@ MP3_JPLAYER.write_cookie = function ( name, value, days ) {
 	if ( days ) {
 		date = new Date();
 		date.setTime( date.getTime() + (days*24*60*60*1000) );
-		expires = "; expires=" + date.toGMTString();
+		expires = "; expires=" + date.toUTCString();
 	}
 	document.cookie = name + "=" + value + expires + "; path=/";
 	return this.read_cookie( name );

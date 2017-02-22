@@ -72,6 +72,9 @@ var MP3jP = {
 		} else {
 			if ( this.pickID !== false ) {
 				jQuery( '#plus' + this.pickID ).removeClass('activePicker');
+				this.pickID = false;
+				this.CSSprop = false;
+				this.partID = false;
 			}
 			var handle = ( this.openTab === 1 ) ? 'Alpha' : '';
 			var colour =  jQuery('#'+ID).val();
@@ -206,7 +209,7 @@ var MP3jP = {
 	fontCheckers: function ( ID, selector, onClass, offClass ) {
 		var ext = '-mjp';
 		var isChecked = jQuery( ID ).prop('checked');
-		console.log(isChecked);
+		//console.log(isChecked);
 		if ( isChecked ) {
 			jQuery( selector ).removeClass( offClass + ext ).addClass( onClass + ext );
 			jQuery( ID + '_label').addClass('formatOn');
@@ -323,7 +326,7 @@ var MP3jP = {
 				var style = {};
 				if ( fieldID === '#barsOffsetVT' ) { //choose top or height
 					property = jQuery('input[name=barsTopOrHeight]:checked').val();
-					console.log(property);
+					//console.log(property);
 					if ( 'top' === property ) {
 						jQuery('#bars-mjp').css({ 'height': 'auto' });
 					} else {

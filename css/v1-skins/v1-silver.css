@@ -160,7 +160,8 @@ ul.gill-mjp a { 	font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif; 
 
 .player-track-title,
 .player-track-title div,
-.a-mjp { line-height: 110% !important; }
+.a-mjp,
+.a-mjp span { line-height: 110% !important; }
 
 .player-track-title div { font-size:0.7em; }
 
@@ -251,15 +252,24 @@ div.innertab2 { display:none; }
 
 /* PLAYLIST */
 .ul-mjp { margin:0px !important; padding:3px 0px 0px 0px !important; list-style-type:none !important; list-style:none !important; list-style-image:none !important; }
-	.li-mjp { margin:0px !important; padding:0px 0px 1px 0px !important; letter-spacing:0px !important; word-spacing:0px !important; margin:0px 1px 0px 1px !important; list-style-type:none !important; }
+	.li-mjp { clear: both; margin:0px !important; padding:0px 0px 1px 0px !important; letter-spacing:0px !important; word-spacing:0px !important; margin:0px 1px 0px 1px !important; list-style-type:none !important; }
 	.li-mjp:before { content:none !important; }
 	.a-mjp {
 			border:0 !important; 
 			text-decoration:none !important; 
 			display:block !important; width:auto !important; 
 			outline:none !important; 
-			padding:7px 10px 7px 14px !important; 
+			padding:7px 10px 7px 14px !important;
+			text-shadow: none !important;
+			background-image:none !important;
 		}
+		
+		
+.a-mjp span {
+	display: inline-block;
+	padding-top:5px;
+	font-size:0.7em;
+}
  
 /* SCREEN  */			
 div.player-track-title, div.jp-play-time, div.jp-total-time, div.statusMI {
@@ -363,13 +373,14 @@ div.mp3j-finfo {
 	min-height:31px;
 	overflow:hidden;
 	min-width:170px;
+	text-align: left;
 }
 
 	div.mp3j-finfo * { font-family:Arial, Helvetica, sans-serif !important; }
 	div.mp3j-finfo-sleeve { position:relative !important; width:100%; height:100%; }
 		div.mp3j-finfo-gif { position:absolute !important; top:0; left:0; right:10%; bottom:0; background:url('images/loader.gif') no-repeat center 37px; width:auto; padding:0px; height:100%; }
 		div.mp3j-finfo-txt { position:relative !important; margin:0px 15px 0 15px !important; padding:10px 0 10px 0 !important; width:auto; }
-		div.mp3j-finfo-close { position:absolute !important; width:31px !important; height:27px !important; padding-top:5px !important; right:0 !important; top:0 !important; text-align:center !important; font-weight:700 !important; font-size:18px !important; line-height:22px !important; color:#aaa !important; border-bottom:1px solid #ccc !important; border-left:1px solid #ccc !important; background:url('images/t40w.png') repeat left top !important; }
+		div.mp3j-finfo-close { cursor:pointer; position:absolute !important; width:31px !important; height:27px !important; padding-top:5px !important; right:0 !important; top:0 !important; text-align:center !important; font-weight:700 !important; font-size:18px !important; line-height:22px !important; color:#aaa !important; border-bottom:1px solid #ccc !important; border-left:1px solid #ccc !important; background:url('images/t40w.png') repeat left top !important; }
 		div.mp3j-finfo-close:hover { color:#888 !important; }
 		
 			div.mp3j-finfo-txt h2 { font-size:15px !important; color:#333 !important; margin:0 0 10px 0 !important; }
@@ -470,9 +481,14 @@ ul.ul-mjp.mp3j_widgetmods li a { font-size:10px !important; line-height:14px !im
 	span.mp3-gtint { margin:0px 2px 0px -8px; opacity:.5; filter:alpha(opacity=50); background:#777; -moz-border-radius:2px; -webkit-border-radius:2px; border-radius:2px; }
 	span.tintmarg	{ margin:0 2px 0 3px; }
 	
-	span.Smp3-tint { opacity:.5; filter:alpha(opacity=50); padding:0px 0px 0px 8px; -moz-border-radius:2px; -webkit-border-radius:2px; border-radius:2px; }	
+	span.Smp3-tint { /*background-color:#aaa;*/ opacity:.5; filter:alpha(opacity=50); padding:0px 0px 0px 8px; -moz-border-radius:2px; -webkit-border-radius:2px; border-radius:2px; }	
 
-
+	/*
+	.loadB_mp3j, .load_mp3j {
+		background-color: #999;
+		opacity:.3; filter:alpha(opacity=30);
+	}
+	*/
 
 /*----------------------	
  [popout] SHORTCODE
@@ -859,3 +875,20 @@ ul.ul-mjp.mp3j_widgetmods li a { font-size:10px !important; line-height:14px !im
 	.novol span.vol_mp3j { display:none; }
 
 	.nobars .bars_holder { display:none; }
+	
+.flip .transport-MI { left: 5px; right: auto; }
+.flip .transport-MI .play-mjp,
+.flip .transport-MI .pause-mjp,
+.flip .transport-MI .stop-mjp { float:left; }
+.flip .buttons-wrap-mjp { right: 2px; left:auto; }
+.flip .buttons-wrap-mjp div { float:right }
+.flip div.playlist-toggle-MI { left: auto; right:1px; }
+.flip div.mp3j-popout-MI  { left: auto; right:0px; }
+
+
+.emjp_clear {
+	height:					0px;
+}
+
+
+	

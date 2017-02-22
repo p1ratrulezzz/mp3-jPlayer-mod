@@ -1,22 +1,27 @@
 <?php
-if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
+class MP3j_Main	{
 	
-	// ---------------------- Update Me
-	var $version_of_plugin = "2.3.2"; 
-	var $M_no = 0;
-	var $F_no = 0;
-	var $S_no = 0;
-	var $Caller = false;
-	var $S_autotrack = 0;
-	var $S_arb = 1;
-	var $Player_ID = 0;
-	var $scriptsflag = "false";
-	var $postID = false;
-	var $F_listname = false;
-	var $F_listlength = false;	
-	var $F_LISTS = array();
-	var $isExcerpt = false;
-	var $isAllowedExcerpt = false;
+	// --------- Update Me ------------
+	var $version_of_plugin = "2.7.2"; 
+	// --------------------------------
+	
+	var $S_no 			= 0;
+	var $S_autotrack 	= 0;
+	var $S_arb 			= 1;
+	var $F_no 			= 0;
+	var $Player_ID 		= 0;
+	
+	var $postID 		= false;
+	var $currentID 		= '';
+	var $F_listname 	= false;
+	var $F_listlength 	= false;	
+	var $F_LISTS 		= array();
+	
+	var $isExcerpt 			= false;
+	var $isAllowedExcerpt 	= false;
+	var $Caller 			= false;
+	var $LibraryI 			= false;
+	
 	var $setup = array( 
 		'stylesheet' 		=> true,
 		'cssHead' 			=> true,
@@ -24,27 +29,21 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		'cssPopout' 		=> true,
 		'designPage' 		=> true
 	);
-	
-	var $currentID = '';
-	var $LibraryI = false;
 	var $JS = array(
-		'playlists' => array(),
-		'players' 	=> array()
+		'playlists' 		=> array(),
+		'players' 			=> array()
 	);
 	var $dbug = array(
-		'str' => '',
-		'arr' => array()
+		'str' 				=> '',
+		'arr' 				=> array()
 	);
-	var $adminOptionsName = "mp3FoxAdminOptions";
+	
 	var $theSettings = array();
 	var $Rooturl;
 	var $WPinstallpath;
 	var $textdomain = "mp3-jplayer";
-	var $newCSScustom;
 	var $stylesheet = "";
-	var $folder_order = "asc";
 	var $PP_css_url = "";
-	var $PluginFolder = "";
 	
 	var $allowedFeedExtensions = array();
 	var $allowedFeedMimes = array();
@@ -61,40 +60,20 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		'design' => false
 	);
 	
-/**
-*	Sets some vars and makes stored 
-*	options compatible. 
-*/
-	function MP3j_Main ()
+	
+	//~~
+	function __construct () 
 	{ 
 		$this->WPinstallpath = get_bloginfo('wpurl');
 		$this->Rooturl = preg_replace("/^www\./i", "", $_SERVER['HTTP_HOST']);
-		$this->PluginFolder = plugins_url('', __FILE__);
-		//$this->newCSScustom = $this->PluginFolder . "/css/player-silverALT.css";
-		$this->newCSScustom = $this->PluginFolder . "/css/example.css";
 		$this->theSettings = $this->getAdminOptions();
-		//$this->theSettings = $this->OPS; //alias, to go
 		if ( ! isset( $_POST['update_mp3foxSettings'] ) ) {
 			$this->setAllowedFeedTypesArrays();
 		}
-		//$this->SKINS = $this->getSkinData();
 	}
 	
-
-////
-
-//~~~~~
-	function onInit ()
-	{
-		$this->SKINS = $this->getSkinData();
-	}
-
-
-//~~~~~
-	function get_excerpt_handler( $stored = "" )
-	{ 
-		global $post;
-		$this->dbug['str'] .= "\n#early excerpt [" .$post->post_title. "]#";
+	//~~
+	function get_excerpt_handler( $stored = "" ) { 
 		$this->isExcerpt = true;
 		$this->isAllowedExcerpt = false;
 		if ( $stored != "" && $this->theSettings['run_shcode_in_excerpt'] ) { 
@@ -103,28 +82,29 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $stored;
 	}
 
-//~~~~~
-	function afterExcerpt ( $stuff = '' )
-	{
-		global $post;
-		$this->dbug['str'] .= "\n#late excerpt [" .$post->post_title. "]#";
+	//~~
+	function afterExcerpt ( $stuff = '' ) {
 		$this->isExcerpt = false;
 		$this->isAllowedExcerpt = false;
 		return $stuff;
 	}
 
-//~~~~~
+	//~~
 	function canRun ()
 	{
 		$allowed = true;
+		if ( 'loggedin' == $this->theSettings['can_view_players'] ) {
+			if ( ! is_user_logged_in() ) {
+				$allowed = false;
+			}
+		}
 		
 		if ( $this->isExcerpt === true ) {
 			if ( $this->isAllowedExcerpt === false ) {
 				$this->dbug['str'] .= "\nExiting (isExcerpt, allowed/manual:false)";
 				$allowed = false;
 			}
-		}
-		else {
+		} else {
 			if ( ! $this->Caller && ! is_singular() ) { 
 				if ( $this->theSettings['player_onblog'] == 'false' ) {
 					$this->dbug['str'] .= "\nExiting (player_onblog is unticked)";
@@ -135,10 +115,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $allowed;
 	}
 
-	
-	
-
-//##########	
+	//~~	
 	function getImageSizeWP ( $size )
 	{
 		$dims = array();
@@ -153,49 +130,47 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $dims;
 	}
 	
-	
-//~~~~~	
+	//~~
 	function getSkinData ()
-	{
-		$custom_css = ( $this->theSettings['custom_stylesheet'] == "/" ) ? $this->newCSScustom : $this->prep_value( $this->theSettings['custom_stylesheet'] );
-		if ( strpos( $custom_css, '/' ) === 0 ) {
-			$protocol = ( isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ) ? 'https' : 'http';
-			$custom_css = $protocol . '://' . $this->Rooturl . $custom_css;
-		}
-		
+	{	
 		//v2 skins
 		$opValue = 'defaultDark';
 		$this->SKINS[ $opValue ] = array(
 			'opValue' => $opValue,
 			'opName' => 'Dark',
-			'url' => $this->PluginFolder . "/css/dark.css"
+			'url' => MP3J_PLUGIN_URL . "/css/dark.css"
 		);
 		$opValue = 'defaultLight';
 		$this->SKINS[ $opValue ] = array(
 			'opValue' => $opValue,
 			'opName' => 'Light',
-			'url' => $this->PluginFolder . "/css/light.css"
+			'url' => MP3J_PLUGIN_URL . "/css/light.css"
 		);
 		$opValue = 'defaultText';
 		$this->SKINS[ $opValue ] = array(
 			'opValue' => $opValue,
 			'opName' => 'Text',
-			'url' => $this->PluginFolder . "/css/text.css"
+			'url' => MP3J_PLUGIN_URL . "/css/text.css"
 		);
 		
 		//v1 skins
 		$this->SKINS['styleG'] = array(
 			'opValue' => 'styleG',
 			'opName' => 'v1 Dark - legacy support',
-			'url' => $this->PluginFolder . "/css/v1-skins/v1-dark.css"
+			'url' => MP3J_PLUGIN_URL . "/css/v1-skins/v1-dark.css"
 		);
 		$this->SKINS['styleF'] = array(
 			'opValue' => 'styleF',
 			'opName' => 'v1 Light - legacy support',
-			'url' => $this->PluginFolder . "/css/v1-skins/v1-silver.css"
+			'url' => MP3J_PLUGIN_URL . "/css/v1-skins/v1-silver.css"
 		);
 		
 		//user's custom css
+		$custom_css = $this->prep_value( $this->theSettings['custom_stylesheet'] );
+		if ( strpos( $custom_css, '/' ) === 0 ) {
+			$protocol = ( isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ) ? 'https' : 'http';
+			$custom_css = $protocol . '://' . $this->Rooturl . $custom_css;
+		}
 		$this->SKINS['styleI'] = array(
 			'opValue' => 'styleI',
 			'opName' => 'Custom CSS - Enter your own URL below',
@@ -205,9 +180,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $this->SKINS;
 	}
 	
-	
-
-//###############	
+	//~~
 	function defineJSvars ()
 	{
 		if ( ! $this->JSvars ) {
@@ -219,8 +192,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		}
 	}
 
-
-//###############
+	//~~
 	function setAllowedFeedTypesArrays ()
 	{
 		$formats = $this->theSettings['audioFormats'];
@@ -265,8 +237,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$this->setFeedFormatsSQL( $allowedFeedMimes );
 	}
 	
-
-//###############	
+	//~~
 	function setFeedFormatsRegex ( $extensions )
 	{
 		$i = 1;
@@ -280,8 +251,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$this->formatsFeedRegex = $regex;
 	}
 	
-
-//###############	
+	//~~
 	function setFeedFormatsSQL ( $mimes ) 
 	{
 		$i = 1;
@@ -294,8 +264,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$this->formatsFeedSQL = $mimeTypes;
 	}
 	
-	
-//###############
+	//~~
 	function grab_library_info( $mimeTypes = '' )
 	{		 
 		if ( $this->LibraryI !== false && $mimeTypes === '' ) {
@@ -317,8 +286,8 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 			default: 
 				$order = "";
 		}
-		global $wpdb;		
 		
+		global $wpdb;		
 		$MIMES = ( $mimeTypes !== '' ) ? $mimeTypes : "post_mime_type = 'audio/mpeg' OR post_mime_type = 'audio/ogg' OR post_mime_type = 'audio/wav' OR post_mime_type = 'audio/webm'";
 		$audio = $wpdb->get_results("SELECT * FROM $wpdb->posts WHERE " . $MIMES . $order);
 		
@@ -362,10 +331,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $LIB;
 	}
 
-
-
-
-//###############
+	//~~
 	function grabLibraryURLs( $mimeType )
 	{
 		global $wpdb;		
@@ -379,98 +345,8 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		}	
 		return ( empty($URLs) ? false : $URLs );
 	}
-	
-	/**
-	 * Gets list of permitted formats
-	 * @return array
-	 * 	an array or supported formats
-	 */
-	public static function getAudioformats() {
-		return array(
-			'mp3'  => 'true',
-			'mp4'  => 'true',
-			'ogg'  => 'false',
-			'wav'  => 'false',
-			'webm' => 'false',
-			'aac' => 'true',
-			'm4a' => 'true',
-		);
-	}
 
-
-	/**
-	 * Parses remote Apache index page for mp3 files
-	 * @param $scheme
-	 *  A protocol, like http, https (now only http)
-	 * @param $folder
-	 *  A url of a directory with mp3 files.
-	 * @return array|bool
-	 *  Returns an array of tracks and false in case of errors or if couldn't find any mp3s.
-	 */
-	 public function grab_remote_folder_mp3s($scheme, $folder) {
-	 	  $permited_exts = $this->getAudioFormats();
-		  // Build correct url.
-		  $url = strtolower($scheme) . '://' . trim($folder, '/');
-		  // Set fixed timeouts in order to prevent long page loadings.
-		  $http_context = stream_context_create(array('http'=>
-		    array(
-		      'timeout' => 12, // Set 12 seconds timeout @fixme: This should go to admin settings
-		    )
-		  ));
-		  // Try loading out content
-		  $content = @file_get_contents($url, FALSE, $http_context); // Prevent errors. Warning might happen if timeout exceeds
-		  if (!$content) {
-		    return false;
-		  }
-		  $dom = new DOMDocument('1.0', 'UTF-8');
-		  libxml_use_internal_errors(false);
-		  $dom->loadHTML($content);
-		  libxml_use_internal_errors(true);
-		  $trs = $dom->getElementsByTagName('table')
-		    ->item(0)
-		    ->getElementsByTagName('tr');
-		  $tracks = array();
-		  foreach ($trs as $tr) {
-		    if (($tds = $tr->getElementsByTagName('td')) && $tds->length>= 1 && ($anchors = $tds->item(1)->getElementsByTagName('a')) && $anchors->length > 0) {
-		      $track_path = $anchors->item(0)->getAttribute('href');
-		      $track_path_decoded = urldecode($track_path);
-		      $_info = pathinfo($track_path_decoded);
-		      $ext = $_info['extension'];
-		      if ($track_path && isset($permited_exts[$ext])) {
-		        $track_link = $url . '/' . $track_path;
-		        $track_link_decoded = urldecode($track_link);
-		        
-		        $tracks[] = array(
-		        	'link' => $track_link,
-		        	'caption' => $_info['filename'],
-		        	'title' => $_info['filename'],
-		        	'src' => $track_link,
-		        	'filename' => $_info['basename'],
-		        	'counterpath' => $track_link,
-		        	'formats' => array(
-		        		0 => $_info['extension'], // @fixme: Not always extension if format! Should be mappings
-		        	),
-		        	'image' => '', // @fixme: support of main image
-		        );
-		      }
-		    }
-		  }
-		  // Sort naturally.
-		  if ( ($c = count($tracks)) > 0 ) {
-		  	// @fixme: Implement natural sort
-		    /*natcasesort($tracks);
-		    if ( $this->folder_order != "asc" ) {
-		      $tracks = array_reverse($tracks, true);
-		    }*/
-		  }
-		  $this->dbug['str'] .= "\nRead folder - Done, " . $c . "mp3(s) from ". urldecode($url);
-		  // Some cleanings
-		  unset($dom);
-		  unset($http_context);
-		  $content = null;
-		  return !empty($tracks) ? $tracks : false;
-	}
-//###############		
+	//~~
 	function grabFolderURLs( $folder, $extensions = "" )
 	{
 		$items = array();
@@ -516,7 +392,6 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 						natcasesort( $items );
 					}
 					
-					//if ( $this->folder_order != "asc" ) { //TODO:support this still?
 					if ( $this->theSettings['folderFeedDirection'] === "DESC" ) {
 						$items = array_reverse( $items, true );
 						$modTimes = array_reverse( $modTimes, true );
@@ -649,36 +524,61 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $list;
 	}
 	
-
+	
+	//~~
+	function pickMetaPart ( $opName, $j )
+	{
+		$meta = '';
+		$val = $this->theSettings[ $opName ];
+		$LIB = $this->grab_library_info();
+		
+		if ( '' !== $val ) {
+			if ( 'artist' == $val || 'album' == $val  ) {
+				$ID3 = wp_get_attachment_metadata( $LIB['postIDs'][ $j ], true );
+				$meta = ( empty( $ID3[ $val ] ) ) ? '' : $ID3[ $val ];
+			} else {
+				$meta = ( empty( $LIB[ $val ][ $j ] ) ) ? '' : $LIB[ $val ][ $j ];
+				if ( 'postDates' == $val ) {
+					$meta = date( 'jS F Y', strtotime( $meta ) );
+				}
+			}
+		}
+		
+		return $meta;
+	}
+	
+	
 //########################
 	function findParts ( $track )
-	{
+	{		
 		$LIB = $this->grab_library_info();
-		$LIBindex = ( $LIB === false ) ? false : array_search( $track['src'], $LIB['filenames'] );
-		$isURL = ( strpos($track['src'], 'http://') === false && strpos($track['src'], 'https://') === false ) ? false : true;
+		$LIBindex = false;
+		if ( $LIB !== false ) {
+			$LIBindex = array_search( $track['src'], $LIB['filenames'] );
+			if ( $LIBindex === false ) {
+				$LIBindex = array_search( $track['src'], $LIB['urls'] );
+			}
+		}		
 		
 		if ( $LIBindex !== false ) //in library
 		{
-			//text
-			$track['src'] = $LIB['urls'][$LIBindex];
-			$track['title'] = ( $track['title'] === "" ) ? $LIB['titles'][$LIBindex] : $track['title'];
-			$track['caption'] = ( $track['caption'] === "" ) ? $LIB['excerpts'][$LIBindex] : $track['caption'];
+			$track['src'] = $LIB['urls'][ $LIBindex ];
 			
-			//image
-			if ( $track['image'] === 'true' ) {
-				$track['image'] = $this->getPostImageUrl( $LIB['postIDs'][$LIBindex] );
+			if ( $track['title'] === '' ) {
+				$title = $this->pickMetaPart( 'playerTitle1', $LIBindex );
+				$track['title'] = ( $title == '' ) ? $LIB['titles'][ $LIBindex ] : $title;
 			}
-			//elseif ( $track['image'] === 'false' ) {
-			//	$track['image'] = '';
-			//}
-			
-			//counterpart
+			if ( $track['image'] === 'true' ) {
+				$track['image'] = $this->getPostImageUrl( $LIB['postIDs'][ $LIBindex ] );
+			}
 			if ( $track['counterpart'] === '' &&  $this->theSettings['autoCounterpart'] === 'true' ) { 
 				$track = $this->getFEEDCounterpart( $track, $LIB );
 			}
+			$track['caption'] = ( $track['caption'] === '' ) ? $this->pickMetaPart( 'playerTitle2', $LIBindex ) : $track['caption'];			
 		}
 		else
 		{
+			$isURL = ( strpos($track['src'], 'http://') === false && strpos($track['src'], 'https://') === false ) ? false : true;
 			if ( ! $isURL ) { //local path
 				if ( strpos($track['src'], "/") !== 0 ) { //no starting slash so prepend df path
 					$track['src'] = ( $this->theSettings['mp3_dir'] == "/" ) ? $this->theSettings['mp3_dir'] . $track['src'] :  $this->theSettings['mp3_dir'] . "/" . $track['src'];
@@ -731,20 +631,33 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$numdisplay = '';
 		foreach ( $tracks as $tr )
 		{	
+			//Capture the first audio formats to be playlisted (jPlayer will be initialised with these)
 			if ( $this->FIRST_FORMATS === false ) {
-				$this->FIRST_FORMATS = $tr['formats'][0] . ( !empty($tr['formats'][1]) ? ','.$tr['formats'][1] : '' );
-			}
-			if ( $this->theSettings['encode_files'] == "true" ) {
-				$tr['src'] = base64_encode( $tr['src'] );
-				$tr['counterpart'] = base64_encode( $tr['counterpart'] );
+				$this->FIRST_FORMATS = $tr['formats'][0] . ( ! empty($tr['formats'][1]) ? ','.$tr['formats'][1] : '' );
 			}
 			
+			//Encode urls
+			$tr['src_js'] = $tr['src'];
+			$tr['counterpart_js'] = $tr['counterpart'];
+			if ( $this->theSettings['encode_files'] == "true" ) {
+				$tr['src_js'] = base64_encode( $tr['src'] );
+				$tr['counterpart_js'] = base64_encode( $tr['counterpart'] );
+			}
+			
+			//Make the track object JS
 			$js .= "\n\t{ name: \"";
 			if ( $this->theSettings['add_track_numbering'] == "true" ) { 
 				$numdisplay = ( $numbering === false ) ? $no : $numbering;
 				$js .= $numdisplay . ". ";
 			}
-			$js .= $tr['title']. "\", formats: [\"" .$tr['formats'][0] . "\"" . ( ! empty($tr['formats'][1]) ? ", \"".$tr['formats'][1]."\"" : "" ) . "], mp3: \"" .$tr['src']. "\", counterpart:\"" . $tr['counterpart'] . "\", artist: \"" .$tr['caption']. "\", image: \"" .$tr['image']. "\", imgurl: \"" .$tr['link']. "\" }";
+			$js .= $tr['title']. "\", formats: [\"" .$tr['formats'][0] . "\"" . ( ! empty($tr['formats'][1]) ? ", \"".$tr['formats'][1]."\"" : "" ) . "], mp3: \"" .$tr['src_js']. "\", counterpart:\"" . $tr['counterpart_js'] . "\", artist: \"" .$tr['caption']. "\", image: \"" .$tr['image']. "\", imgurl: \"" .$tr['link']. "\"";
+			
+			//Run extension Callbacks - Additions to track object JS
+			$js = MJPwrite_js_playlist( $js, $tr );
+			
+			//Close track object
+			$js .= " }";
+			
 			if ( $no != $count ) { 
 				$js .= ","; 
 			}
@@ -904,7 +817,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		$TRACKS = array();
 		foreach ( $tracks as $t )
 		{	
-			if ( preg_match( "!^FEED\:(HTTPS?\|.+|DF|ID|LIB|/.*)$!i", $t['src'] ) == 1 ) { // keep ID for backwards compat
+			if ( preg_match( "!^FEED:(DF|ID|LIB|/.*)$!i", $t['src'] ) == 1 ) { // keep ID for backwards compat
 				$t['src'] = stristr( $t['src'], ":" );
 				$t['src'] = str_replace( ":", "", $t['src'] );
 				$feedTracks = $this->getFeed( $t );
@@ -979,7 +892,9 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 						}
 						if ( $add ) {
 							$FEEDtr = $this->makeTrack( $file );
-							$FEEDtr['caption'] = ( empty( $track['caption'] ) ) ? $lib['excerpts'][$j] : $track['caption'];
+							//$FEEDtr['caption'] = ( empty( $track['caption'] ) ) ? $lib['excerpts'][$j] : $track['caption'];
+							
+							
 							//$FEEDtr['image'] = ( $track['image'] === 'true' ) ? $this->getPostImageUrl( $lib['postIDs'][$j] ) : ( $track['image'] === 'false' ? '' : $track['image'] );
 							$FEEDtr['image'] = ( $track['image'] === 'true' ) ? $this->getPostImageUrl( $lib['postIDs'][$j] ) : $track['image'];
 							$FEEDtr['link'] = ( empty( $track['link'] ) ) ? "" : $track['link'];
@@ -992,39 +907,6 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 				}
 			}
 		}
-		// Check if we have a remote address
-	        else if (($ruins = explode('|', $track['src'])) && ($scheme = strtoupper(reset($ruins))) && ($scheme == 'HTTP' || $scheme == 'HTTPS') && isset($ruins[1])) {
-		        $cid = substr(md5('mp3-jplayer:' . $track['src']), 0, 16);
-		        // Provide ability to rebuild cache via $_GET parameters and support of w3 total cache
-		        // @link https://wordpress.org/plugins/w3-total-cache/ @endlink
-		        $is_flush_needed = false;
-		        foreach (array(
-		        	'w3tc_flush_all' => true,
-		        	'w3tc_flush_objectcache' => true,
-		         	'mp3_jplayer_cache_clear' => true,
-		         	'w3tc_note' => 'flush_all'
-		        ) as $param => $value) {
-			        if (!empty($_GET[$param]) && ($value === true || $value == $_GET[$param])) {
-			        	$is_flush_needed = true;
-			        	break;
-			        }
-		        }
-		          
-		        // Try fetching cached tracks
-		        $_tracks = $is_flush_needed ? FALSE : wp_cache_get($cid);
-		        $_tracks = $_tracks ? $_tracks : (object) array('expire' => strtotime('+3 hours') - time());
-		        if (!isset($_tracks->data)) {
-		          $_tracks->data = $this->grab_remote_folder_mp3s( reset($ruins), $ruins[1] ); // Use special parser
-		          if (empty($_tracks->data)) {
-		            $_tracks->data = array();
-		            // Lower expiration time for empty sets just to protect from often requests.
-		            $_tracks->expire = strtotime('+3 minutes') - time();
-		          }
-		          wp_cache_set($cid, $_tracks, '', $_tracks->expire);
-		        }
-		        $TRACKS = $_tracks->data;
-		        $_tracks = null; // kill the reference
-	        }
 		else
 		{
 			$folder = ( $track['src'] == "DF" ) ? $this->theSettings['mp3_dir'] : $track['src'];
@@ -1075,51 +957,8 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 	}
 
 	
-/*	Looks for any active widget that isn't ruled out by 
-	the page filter. Returns true if finds a widget that will be building. */		
-	function has_allowed_widget( $type )
-	{
-		global $_wp_sidebars_widgets;
-		if ( empty($_wp_sidebars_widgets) ) {
-			$SBsettings = get_option('sidebars_widgets', array());
-		}
-		else {
-			$SBsettings = $_wp_sidebars_widgets;
-		}
-		if ( empty($SBsettings) || is_null($SBsettings) ) {
-			return false;
-		}
-		$active = array();
-		$scripts = false;
-		foreach ( $SBsettings as $key => $arr ) { 
-			if ( is_array($arr) && $key != "wp_inactive_widgets" ) {
-				foreach ( $arr as $i => $widget ) {
-					if ( strchr($widget, $type) ) {
-						$active[] = $widget;
-					} 
-				}
-			}
-		}
-		$this->dbug['arr'][] = $active;
 		
-		if ( !empty($active) ) { 
-			$name = "widget_". $type;
-			$ops = get_option($name);
-			foreach ( $active as $i => $widget ) {
-				$wID = strrchr( $widget, "-" );
-				$wID = str_replace( "-", "", $wID );
-				foreach ( $ops as $j => $arr ) {
-					if ( $j == $wID ) {
-						if ( !$this->page_filter($arr['restrict_list'], $arr['restrict_mode']) ) {
-							$scripts = true;
-							break 2;
-						}
-					}	
-				}
-			}
-		}
-		return $scripts;
-	}
+		
 		
 		
 /*	Checks current page against widget page-filter settings.
@@ -1187,82 +1026,6 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $f;
 	}		
 		
-		
-/*	Checks whether current post ID 
-	content contains a shortcode. */
-	function has_shortcodes ( $shtype = "" )
-	{ 	
-		global $post;
-		if ( empty($post->ID) ) {
-			return false;
-		}
-		$success = false;
-		global $wpdb;
-		$content = $wpdb->get_results("SELECT post_content FROM $wpdb->posts WHERE ID=" . $post->ID );
-		$con = $content[0]->post_content;
-		
-		if ( $shtype != "" ) { //check for it
-			if ( strpos($con, $shtype) !== false ) { 
-				//return true;
-				$success = true;
-			}
-		} else { //check for all player making shortcodes
-			if ( strpos($con, "[mp3-jplayer") !== false || strpos($con, "[mp3j") !== false || strpos($con, "[mp3t") !== false || strpos($con, "[mp3-popout") !== false ) {
-				//return true;
-				$success = true;
-			}
-			if ( $this->theSettings['replace_WP_playlist'] === 'true' ){
-				if ( strpos($con, "[playlist") !== false ) {
-					$success = true;
-				}
-			}
-			if ( $this->theSettings['replace_WP_audio'] === 'true' || $this->theSettings['replace_WP_attached'] === 'true' ){
-				if ( strpos($con, "[audio") !== false ) {
-					$success = true;
-				}
-			}
-			if ( $this->theSettings['replace_WP_embedded'] === 'true' ){
-				if ( strpos($con, "[embed") !== false ) {
-					$success = true;
-				}
-			}
-		}
-		//return false;
-		return $success;
-	}
-	
-/* Checks for a string in post content */
-	function post_has_string ( $str = "" )
-	{ 
-		global $post;
-		if ( empty($post->ID) ) {
-			return false;
-		}		
-		global $wpdb;
-		$content = $wpdb->get_results("SELECT post_content FROM $wpdb->posts WHERE ID=" . $post->ID );
-		$con = $content[0]->post_content;
-		$success = false;
-		if ( $str !== '' ) //check for it
-		{
-			if ( strpos($con, $str) !== false ) {
-				$success = true;
-			}
-		} 
-		else //check replacement settings and look for relevant extensions
-		{
-			if ( $this->theSettings['replace_WP_embedded'] === 'true' || $this->theSettings['make_player_from_link'] === 'true' ) {
-				$extensions = array( '.mp3', '.mp4', '.m4a', '.ogg', '.oga', '.wav', '.webm', '.webma' );
-				foreach ( $extensions as $ext ) {
-					if ( strpos($con, $ext) !== false ) {
-						$success = true;
-						break;
-					}
-				}
-			}	
-		}
-		return $success;
-	}
-
 
 /*	Swaps out links for player shortcodes, hooked to the_content. */
 	function replace_links ( $stuff = '' )
@@ -1277,83 +1040,77 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		
 		return preg_replace( $remove, $add, $stuff );
 	}
-
-
-/*	Enqueues js and css scripts. */
-	function add_Scripts( $theme )
-	{
-		$version = substr( get_bloginfo('version'), 0, 3);
-		
-		//jquery and jquery-ui
-		//backward compat for older versions of WP, otherwise jquery components will just enqueue from wp-includes
-		if ( $this->theSettings['disable_jquery_libs'] != "yes" ) {
-			if ( $version >= 3.1 ) {
-				wp_enqueue_script( 'jquery-ui-slider', $this->PluginFolder . '/js/wp-backwards-compat/ui.slider.js', array( 'jquery', 'jquery-ui-core', 'jquery-ui-widget', 'jquery-ui-mouse' ), '1.8.10' );
-			} 
-			else { //pre WP 3.1
-				wp_enqueue_script( 'jquery-ui-widget', $this->PluginFolder . '/js/wp-backwards-compat/ui.widget.js', array( 'jquery', 'jquery-ui-core' ), '1.8.10' );
-				wp_enqueue_script( 'jquery-ui-mouse', $this->PluginFolder . '/js/wp-backwards-compat/ui.mouse.js', false, '1.8.10' );
-				wp_enqueue_script( 'jquery-ui-slider', $this->PluginFolder . '/js/wp-backwards-compat/ui.slider.js', false, '1.8.10' );
-			}
-			wp_enqueue_script( 'jquery-touch-punch', $this->PluginFolder . '/js/wp-backwards-compat/jquery.ui.touch-punch.min.js', false, '0.2.2' );
-			$this->dbug['str'] .= "\n\nScript request added (jQuery & UI)";
-		} 
-		else {
-			$this->dbug['str'] .= "\n\nScripts are OFF (jQuery & UI)";
-		}
-		
-		//jplayer and plugin js
-		wp_enqueue_script( 'jplayer271', $this->PluginFolder . '/js/jquery.jplayer.min.2.7.1.js', false, '2.7.1' );
-		wp_enqueue_script( 'mp3-jplayer', $this->PluginFolder . '/js/mp3-jplayer-2.3.2.js', false, '2.3.2' );
 	
-		$skins = $this->SKINS;
-		if ( isset( $skins[ $theme ]['url'] ) ) {
-			$themepath = $skins[ $theme ]['url'];
-		} else { //fall back to default
-			$themepath = $skins['defaultLight']['url'];
-			$this->dbug['str'] .= "\nNo css, falling back to default";
-		}
-		
+	//~~
+	function enqueueCSS () {
+		$theme = ( $this->stylesheet == "" ) ? $this->theSettings['player_theme'] : $this->stylesheet;
+		$themepath = isset( $this->SKINS[ $theme ]['url'] )? $this->SKINS[ $theme ]['url'] : $this->SKINS['defaultLight']['url']; //fall back to default
 		if ( $this->setup['stylesheet'] === true ) {
 			wp_enqueue_style( 'mp3-jplayer', $themepath, false, $this->version_of_plugin );
 		}
-		if ( $this->setup['cssHead'] === true ) {
-			echo $this->writeColoursCSS();
-		}
 		$this->PP_css_url = $themepath;
-		$this->SCRIPT_CALL = true;
-		return;
 	}
 	
-	
+	//~~
+	function enqueueJS () {
+		if ( $this->theSettings['disable_jquery_libs'] != "yes" ) {
+			$version = substr( get_bloginfo('version'), 0, 3 );
+			if ( $version >= 3.1 ) {
+				wp_enqueue_script( 'jquery-ui-slider', MP3J_PLUGIN_URL . '/js/wp-backwards-compat/ui.slider.js', array( 'jquery', 'jquery-ui-core', 'jquery-ui-widget', 'jquery-ui-mouse' ), '1.8.10' );
+			} 
+			else { //pre WP 3.1
+				wp_enqueue_script( 'jquery-ui-widget', MP3J_PLUGIN_URL . '/js/wp-backwards-compat/ui.widget.js', array( 'jquery', 'jquery-ui-core' ), '1.8.10' );
+				wp_enqueue_script( 'jquery-ui-mouse', MP3J_PLUGIN_URL . '/js/wp-backwards-compat/ui.mouse.js', false, '1.8.10' );
+				wp_enqueue_script( 'jquery-ui-slider', MP3J_PLUGIN_URL . '/js/wp-backwards-compat/ui.slider.js', false, '1.8.10' );
+			}
+			wp_enqueue_script( 'jquery-touch-punch', MP3J_PLUGIN_URL . '/js/wp-backwards-compat/jquery.ui.touch-punch.min.js', false, '0.2.2' );
+		}
+		
+		//jplayer and plugin js
+		wp_enqueue_script( 'jplayer271', MP3J_PLUGIN_URL . '/js/jquery.jplayer.min.2.7.1.js', false, '2.7.1' );
+		wp_enqueue_script( 'mp3-jplayer', MP3J_PLUGIN_URL . '/js/mp3-jplayer-2.7.js', false, '2.7' );
+		
+		$this->SCRIPT_CALL = true;
+	}
+		
 //~~~~~
 	function writeColoursCSS ()
 	{			
 		$settings = $this->theSettings;
 		$colours = $settings['colour_settings'];
-		$imgDir = $this->PluginFolder . "/css/images/";		
+		$imgDir = MP3J_PLUGIN_URL . "/css/images/";		
 		
 		$CSS = "\n<style type=\"text/css\">\n";
-		$CSS .= ".innertab { background-color:" . $colours['screen_colour'] . "; } \n";
-		$CSS .= ".playlist-colour { background:" . $colours['playlist_colour'] . "; } \n";
-		$CSS .= ".loadMI_mp3j, .loadB_mp3j, .load_mp3j { background:" . $colours['loadbar_colour'] . "; } \n";
-		$CSS .= ".poscolMI_mp3j, .MIsliderVolume .ui-widget-header, .vol_mp3t .ui-widget-header, .vol_mp3j .ui-widget-header { background-color:" . $colours['posbar_colour'] . "; } \n";
-		$CSS .= ".interface-mjp { color:" . $colours['screen_text_colour'] . "; } \n";
-		$CSS .= ".player-track-title { font-size:" . $colours['font_size_1'] . "px; } \n";
-		$CSS .= ".a-mjp { color:" . $colours['list_text_colour'] . "; background-image:none !important; } \n";
-		$CSS .= ".a-mjp:hover { background-image:none !important; color:" . $colours['list_hover_colour'] . " !important; background:" . $colours['listBGa_hover'] . " !important; } \n";
-		$CSS .= ".a-mjp.mp3j_A_current { background-image:none !important; color:" . $colours['list_current_colour'] . " !important; background:" . $colours['listBGa_current'] . " !important; } \n";
-		$CSS .= ".a-mjp { font-size:" . $colours['font_size_2'] . "px; } \n";
-		$CSS .= ".transport-MI div, .mp3j-popout-MI:hover, .playlist-toggle-MI:hover, .dloadmp3-MI.whilelinks { background-color:" . $colours['posbar_colour'] . "; border-color:" . $colours['posbar_colour'] . "; } \n";
-		$CSS .= ".popout-text-mjp:hover { color:" . $colours['posbar_colour'] . "; } \n";
-		$CSS .= "span.textbutton_mp3j, .transport-MI div, .transport-MI div:hover { color:" . $colours['list_current_colour'] . "; } \n";
-		//$CSS .= "span.textbutton_mp3j:hover { color:" . $colours['list_hover_colour'] . "; } \n";
-		$CSS .= ".mp3-tint, .Smp3-tint { background-color:" . ( $colours['indicator'] == "tint"  ? "#aaa" : $colours['posbar_colour'] ) . "; } \n";
+		
+		$CSS .= ".innertab				{ background-color:" . $colours['screen_colour'] . "; } \n";
+		$CSS .= ".playlist-colour		{ background:" . $colours['playlist_colour'] . "; } \n";
+		$CSS .= ".interface-mjp			{ color:" . $colours['screen_text_colour'] . "; } \n";
+		
+		//$CSS .= ".loadMI_mp3j			{ background:" . $colours['loadbar_colour'] . "; } \n";
+		$CSS .= ".loadMI_mp3j, .loadB_mp3j, .load_mp3j { background:" . $colours['loadbar_colour'] . "; } \n"; //keep single stuff for the mo
+		
+		//$CSS .= ".poscolMI_mp3j			{ background-color:" . $colours['posbar_colour'] . "; } \n";
+		$CSS .= ".poscolMI_mp3j, .MIsliderVolume .ui-widget-header, .vol_mp3t .ui-widget-header, .vol_mp3j .ui-widget-header { background-color:" . $colours['posbar_colour'] . "; } \n"; //keep single stuff for the mo
+		
+		//$CSS .= ".mp3-tint				{ background-color:" . ( $colours['indicator'] == "tint"  ? "#aaa" : $colours['posbar_colour'] ) . "; } \n";
+		$CSS .= ".mp3-tint, .Smp3-tint	{ background-color:" . ( $colours['indicator'] == "tint"  ? "#aaa" : $colours['posbar_colour'] ) . "; } \n"; //keep single stuff for the mo
+		
+		$CSS .= ".player-track-title		{ font-size:" . $colours['font_size_1'] . "px; } \n";
+		$CSS .= ".a-mjp						{ font-size:" . $colours['font_size_2'] . "px; color:" . $colours['list_text_colour'] . "; } \n";
+		$CSS .= ".a-mjp:hover				{ color:" . $colours['list_hover_colour'] . " !important; background:" . $colours['listBGa_hover'] . " !important; } \n";
+		$CSS .= ".a-mjp.mp3j_A_current		{ color:" . $colours['list_current_colour'] . " !important; background:" . $colours['listBGa_current'] . " !important; } \n";
+		$CSS .= ".li-mjp					{ font-size:" . $colours['font_size_2'] . "px; } \n";
+		$CSS .= ".li-mjp:hover				{ background-color:" . $colours['listBGa_hover'] . "; } \n";
+		$CSS .= ".li-mjp.mp3j_LI_current	{ background-color:" . $colours['listBGa_current'] . "; } \n";
+		
+		//text button players
+		$CSS .= ".transport-MI div, .transport-MI div:hover, span.textbutton_mp3j { color:" . $colours['list_current_colour'] . "; } \n"; //keep single stuff for the mo
+		
 		$CSS .= "</style>\n";
 		
 		return $CSS;
 	}
-	
+
 	
 //~~~~~
 	function makeColourPropsJS ()
@@ -1577,190 +1334,37 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 /*	Stores and returns 
 	updated compatible options. */
 	function getAdminOptions()
-	{
-		$colour_keys = array(
-			'screen_colour' 	=> 'rgba(0, 0, 0, 0.13)',
-			'loadbar_colour' 	=> 'rgba(5, 86, 0, 0.59)',
-			'posbar_colour' 	=> 'rgb(12, 180, 0)',
-			'posbar_tint' 		=> 'soften',
-			'playlist_colour' 	=> 'rgba(16, 16, 16, 0.82)',
-			'playlist_tint' 	=> 'lighten1',
-			'list_divider' 		=> 'none',
-			'screen_text_colour' => '#202020', 
-			'list_text_colour' 	=> '#ffffff',
-			'list_current_colour' => '#29f000',
-			'list_hover_colour' => '#c8fdbd',
-			'listBGa_current' 	=> 'transparent',
-			'listBGa_hover' 	=> 'transparent',
-			'font_size_1'			=> '23',
-			'font_size_2'			=> '17',
-			'font_family_1'			=> 'theme',
-			'font_family_2'			=> 'theme',
-			'titleAlign'	=> 'left',
-			'titleOffset' 	=> '16px',
-			'titleOffsetR'	=> '16px',
-			'titleBold'		=> 'true',
-			'titleHide'		=> 'false',
-			'titleItalic'	=> 'false',
-			'titleTop' 		=> '20px',
-			'captionBold'		=> 'false',
-			'captionItalic'		=> 'true',
-			'listBold'		=> 'false',
-			'listItalic'	=> 'false',
-			'listAlign'		=> 'left',
-			'imageAlign'	=> 'right',
-			'imgOverflow' 	=> 'false',
-			'userClasses' 	=> '',
-			'indicator' 	=> 'colour',
-			'adminBG' 			=> '#f6f6f6',
-			'adminCheckerIMG' 	=> 'false',
-			'adminIMG' 			=> $this->PluginFolder . '/css/admin/images/test-image.jpg',
-			'adminSizer_w' 		=> '570px',
-			'adminSizer_h' 		=> '320px'
-		);
-		
-		$audioFormats = $this->getAudioFormats();
-		
-		$mp3FoxAdminOptions = array( // defaults
-			'initial_vol' => '100',
-			'auto_play' => 'false',
-			'mp3_dir' => '/',
-			'player_theme' => 'defaultDark',
-			'allow_remoteMp3' => 'true',
-			'player_float' => 'none',
-			'player_onblog' => 'true',
-			'playlist_show' => 'true',
-			'remember_settings' => 'true',
-			'hide_mp3extension' => 'true',
-			'show_downloadmp3' => 'false',
-			//'disable_template_tag' => 'false',
-			'db_plugin_version' => $this->version_of_plugin,
-			'custom_stylesheet' => $this->newCSScustom,
-			'echo_debug' => 'false',
-			'add_track_numbering' => 'false',
-			'enable_popout' => 'true',
-			'playlist_repeat' => 'false',
-			'player_width' => '100%',
-			'popout_background' => '#f0f0f0',
-			'popout_background_image' => '',
-			'colour_settings' => $colour_keys,
-			//'use_fixed_css' => 'false',
-			'paddings_top' => '5px',
-			'paddings_bottom' => '30px',
-			'paddings_inner' => '30px',
-			'popout_max_height' => '600',
-			'popout_width' => '400',
-			'popout_button_title' => 'Popout',
-			'max_list_height' => '450',
-			'encode_files' => 'true',
-			'library_sortcol' => 'file',
-			'library_direction' => 'ASC',
-			'disable_jquery_libs' => '',
-			'run_shcode_in_excerpt' => 'false',
-			'f_separator' 			=> ',',
-			'c_separator' 			=> ';',
-			'volslider_on_singles' 			=> 'false',
-			'volslider_on_mp3j' 			=> 'false',
-			'dload_text' 					=> 'Download',
-			'loggedout_dload_text' 			=> 'Log in to download',
-			'loggedout_dload_link' 			=> $this->WPinstallpath . '/wp-login.php',
-			//'touch_punch_js' 				=> 'true',
-			'force_browser_dload' 			=> 'true',
-			'dloader_remote_path' 			=> '',
-			'make_player_from_link' 		=> 'true',
-			'make_player_from_link_shcode' 	=> '[mp3j track="{TEXT}@{URL}" volslider="y"]',
-			'audioFormats' 					=> $audioFormats,
-			'replace_WP_playlist' 			=> 'true',
-			'replace_WP_audio' 				=> 'true',
-			'replace_WP_embedded' 			=> 'true',
-			'replace_WP_attached' 			=> 'true',
-			'replacerShortcode_playlist' 	=> 'player',
-			'replacerShortcode_single' 		=> 'mp3j',
-			'imageSize' 		=> 'autoH',
-			'folderFeedSortcol' => 'file',
-			'folderFeedDirection' 	=> 'ASC',
-			'autoCounterpart' 	=> 'true',
-			'allowRangeRequests' 	=> 'true',
-			'playerHeight' 		=> '92px',
-			'font_size_mp3t' 	=> '18px',
-			'font_size_mp3j' 	=> '18px',
-			'showErrors'		=> 'admin'
-		);
-		
-		$theOptions = get_option($this->adminOptionsName);							
+	{		
+		$mp3FoxAdminOptions = $this->pluginDefaultSettings();
+		$colour_keys = $mp3FoxAdminOptions['colour_settings'];
+		$theOptions = get_option( MP3J_SETTINGS_NAME );							
 		
 		if ( ! empty($theOptions) )
 		{
 			if ( $theOptions['db_plugin_version'] !== $this->version_of_plugin ) //do compat
 			{
-				//backwards compat with v1.4 style
-				$styleCompat = $this->do_style_compat( $theOptions['player_theme'], $theOptions['custom_stylesheet'] ); 
-				if ( $styleCompat[0] )
-				{
-					$theOptions['player_theme'] = $styleCompat[0];
-					$theOptions['custom_stylesheet'] = $styleCompat[2];
-				}			
+				//Pre v2 compatibility stuff
+				$saved_version = intval( substr( $theOptions['db_plugin_version'], 0 ,1 ) );
+				if ( $saved_version < 2 ) {
+					$theOptions['colour_settings'] = $colour_keys;
+				}
+				
 				//ditch un-needed stored settings
-				foreach ( $theOptions as $key => $option )
-				{
-					if ( array_key_exists( $key, $mp3FoxAdminOptions) )
-					{
-						$mp3FoxAdminOptions[$key] = $option;
+				foreach ( $theOptions as $key => $option ) {
+					if ( array_key_exists( $key, $mp3FoxAdminOptions ) ) {
+						$mp3FoxAdminOptions[ $key ] = $option;
 					}
 				}
 				
 				//add in any new colour keys
-				foreach ( $colour_keys as $key => $val )
-				{
-					if ( ! array_key_exists( $key, $mp3FoxAdminOptions['colour_settings'] ) )
-					{
+				foreach ( $colour_keys as $key => $val ) {
+					if ( ! array_key_exists( $key, $mp3FoxAdminOptions['colour_settings'] ) ) {
 						$mp3FoxAdminOptions['colour_settings'][ $key ] = $val;
 					}
 				}
 				
-				//Pre v2 compatibility stuff
-				$saved_version = intval( substr( $theOptions['db_plugin_version'], 0 ,1 ) );
-				if ( $saved_version < 2 )
-				{
-					//fill-in any old default colours that weren't shown admin-side
-					$mp3FoxAdminOptions['colour_settings'] = $this->do_colourkey_compat( $mp3FoxAdminOptions['colour_settings'], $mp3FoxAdminOptions['player_theme'] );
-					
-					//convert old separate colour and opacity fields to rgba in single field
-					$mp3FoxAdminOptions['colour_settings'] = $this->areaColourReformat( $mp3FoxAdminOptions['colour_settings'] );
-					
-					//set a compatible default height
-					$mp3FoxAdminOptions['playerHeight'] = ( "styleI" == $mp3FoxAdminOptions['player_theme'] ) ? '71px' : '62px';
-					
-					$mp3FoxAdminOptions['colour_settings']['titleTop'] = "8px";
-					$mp3FoxAdminOptions['colour_settings']['font_size_1'] = "16";
-					$mp3FoxAdminOptions['colour_settings']['font_size_2'] = "12";
-					$mp3FoxAdminOptions['colour_settings']['font_family_1'] = "verdana";
-					$mp3FoxAdminOptions['colour_settings']['font_family_2'] = "verdana";
-					$mp3FoxAdminOptions['colour_settings']['posbar_tint'] = "none";
-					$mp3FoxAdminOptions['font_size_mp3t'] = '14px';
-					$mp3FoxAdminOptions['font_size_mp3j'] = '14px';
-					
-					$styleKey = $mp3FoxAdminOptions['player_theme'];
-					
-					if ( $styleKey == 'styleH' ) {
-						$mp3FoxAdminOptions['player_theme'] = 'defaultText';
-					} else {
-						$mp3FoxAdminOptions['colour_settings']['titleBold'] = "false";
-						$mp3FoxAdminOptions['colour_settings']['captionItalic'] = "false";
-					}
-					
-					if ( $styleKey == 'styleF' || $styleKey == 'styleG' || $styleKey == 'styleH' ) {
-						$mp3FoxAdminOptions['colour_settings']['userClasses'] = 'fullbars';
-					} elseif ( $styleKey == 'styleI' ) {
-						if ( $mp3FoxAdminOptions['custom_stylesheet'] === $this->newCSScustom ) {
-							$mp3FoxAdminOptions['custom_stylesheet'] = '/';
-							$mp3FoxAdminOptions['player_theme'] = 'styleF';
-						}
-					}
-				}
-				
 				$mp3FoxAdminOptions['db_plugin_version'] = $this->version_of_plugin; //set last!
-				update_option($this->adminOptionsName, $mp3FoxAdminOptions);
+				update_option( MP3J_SETTINGS_NAME, $mp3FoxAdminOptions );
 			}
 			else
 			{
@@ -1769,179 +1373,16 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		}
 		else //save new defaults
 		{
-			update_option($this->adminOptionsName, $mp3FoxAdminOptions);
+			$mp3FoxAdminOptions['mp3tColour_on'] = 'true';
+			$mp3FoxAdminOptions['mp3jColour_on'] = 'true';
+			$mp3FoxAdminOptions['hasListMeta'] = 'true';
+			update_option( MP3J_SETTINGS_NAME, $mp3FoxAdminOptions );
 		}		
 		
 		return $mp3FoxAdminOptions;
-	}
-
-
-/**
- *	Backwards compat function - Updates player skin
- *	options if user has old settings.
- */
-	function do_style_compat ( $s, $path = "" ) 
-	{
-		//custom stlesheet
-		$csspath = $this->PluginFolder . "/css/mp3jplayer-cyanALT.css"; //orig custom stylesheet in v1.4 
-		$path = ( $path == $csspath || $path == "" ) ? $this->newCSScustom : $path;
-		
-		//player theme
-		if ( "styleA" == $s ) { 	//orig 'neutral'
-			$s = "styleF";
-		} 
-		elseif ( "styleB" == $s ) {	//orig 'green'
-			$s = "styleF";
-		} 
-		elseif ( "styleC" == $s ) {	//orig 'blu'
-			$s = "styleF";
-		} 
-		elseif ( "styleD" == $s ) {	//orig 'cyanALT', or custom css
-			$s = "styleI";
-		} 
-		elseif ( "styleE" == $s ) {	//orig 'text'
-			$s = "styleH";
-		} 
-		else { 
-			$s = false; 
-		}
-		return array( $s, $path );
 	}	
 	
-	
-/**
- *	Backwards compat function (for pre v2 settings) - Puts any default colours (those that
- *	weren't specified in user's options) into the current settings for saving.
- */
-	function do_colourkey_compat ( $current, $style )
-	{
-		//old default colour arrays
-		$silver = array( 
-			'screen_colour'			=> '#a7a7a7', 		
-			'screen_opacity' 		=> '35',
-			'loadbar_colour' 		=> '#34A2D9', 		
-			'loadbar_opacity' 		=> '70',
-			'posbar_colour' 		=> '#5CC9FF', 		
-			'posbar_opacity' 		=> '80', 				
-			'posbar_tint' 			=> 'softenT',
-			'playlist_colour' 		=> '#f1f1f1', 	
-			'playlist_opacity' 		=> '100', 			
-			'playlist_tint' 		=> 'darken1', 		
-			'list_divider' 			=> 'med',
-			'screen_text_colour' 	=> '#525252', 
-			'list_text_colour' 		=> '#525252', 	
-			'list_current_colour' 	=> '#47ACDE', 	
-			'list_hover_colour' 	=> '#768D99',
-			'listBGa_current' 		=> 'transparent', 	
-			'listBGa_hover'			=> 'transparent',
-			'indicator' 			=> 'colour',
-			'font_size_1'			=> '16',
-			'font_size_2'			=> '14',
-			'font_family_1'			=> 'theme',
-			'font_family_2'			=> 'theme',
-			'volume_grad' 			=> 'light'
-		);
-		$darkgrey = array( 
-			'screen_colour' 		=> '#333', 			
-			'screen_opacity' 		=> '15',
-			'loadbar_colour' 		=> '#34A2D9', 		
-			'loadbar_opacity' 		=> '70',
-			'posbar_colour' 		=> '#5CC9FF', 		
-			'posbar_opacity' 		=> '100', 				
-			'posbar_tint' 			=> 'darken',
-			'playlist_colour' 		=> '#fafafa', 	
-			'playlist_opacity' 		=> '100', 			
-			'playlist_tint' 		=> 'darken2', 		
-			'list_divider' 			=> 'none',
-			'screen_text_colour' 	=> '#525252', 
-			'list_text_colour' 		=> '#525252', 	
-			'list_current_colour' 	=> '#34A2D9', 	
-			'list_hover_colour' 	=> '#768D99',
-			'listBGa_current' 		=> 'transparent', 		
-			'listBGa_hover' 		=> 'transparent',
-			'indicator' 			=> 'colour',
-			'font_size_1'			=> '16',
-			'font_size_2'			=> '14',
-			'font_family_1'			=> 'theme',
-			'font_family_2'			=> 'theme',
-			'volume_grad' 			=> 'dark'
-		);
-		$text = array(
-			'screen_colour' 		=> 'transparent', 		
-			'screen_opacity' 		=> '100',
-			'loadbar_colour' 		=> '#aaa', 			
-			'loadbar_opacity' 		=> '20',
-			'posbar_colour' 		=> '#fff', 				
-			'posbar_opacity' 		=> '58', 				
-			'posbar_tint' 			=> 'none',
-			'playlist_colour' 		=> '#f6f6f6', 		
-			'playlist_opacity' 		=> '100', 			
-			'playlist_tint' 		=> 'lighten2', 			
-			'list_divider' 			=> 'none',
-			'screen_text_colour' 	=> '#869399',
-			'list_text_colour' 		=> '#777', 			
-			'list_current_colour' 	=> '#47ACDE', 	
-			'list_hover_colour' 	=> '#829FAD',
-			'listBGa_current' 		=> 'transparent', 	
-			'listBGa_hover' 		=> 'transparent',
-			'indicator' 			=> 'tint',
-			'font_size_1'			=> '16',
-			'font_size_2'			=> '14',
-			'font_family_1'			=> 'theme',
-			'font_family_2'			=> 'theme',
-			'volume_grad' 			=> 'dark'
-		);
-		
-		switch( $style ) {	
-			case "styleG": 
-				$old_colours = $darkgrey;
-				break;
-			
-			case "styleH":
-				$old_colours = $text;
-				break;
-			
-			default: 
-				$old_colours = $silver;
-		}
-		
-		foreach ( $old_colours as $key => $val ) {
-			if ( array_key_exists( $key, $current ) && $current[ $key ] == '' ) {
-				$current[ $key ] = $val;
-			}
-		}
-		return $current;	
-	}
-
-
-
-
-//~~~~~
-	function areaColourReformat ( $currentColours )
-	{
-		$c = $currentColours;
-		//screen
-		$rgb = $this->hexToRGB( $c['screen_colour'], true );
-		$c['screen_colour'] = ( $c['screen_opacity'] >= '100' ) ? 'rgb(' .$rgb. ')' : 'rgba(' .$rgb. ',' .( intval($c['screen_opacity']) / 100 ). ')';
-		
-		//load
-		$rgb = $this->hexToRGB( $c['loadbar_colour'], true );
-		$c['loadbar_colour'] = ( $c['loadbar_opacity'] >= '100' ) ? 'rgb(' .$rgb. ')' : 'rgba(' .$rgb. ',' .( intval($c['loadbar_opacity']) / 100 ). ')';
-		
-		//pos
-		$rgb = $this->hexToRGB( $c['posbar_colour'], true );
-		$c['posbar_colour'] = ( $c['posbar_opacity'] >= '100' ) ? 'rgb(' .$rgb. ')' : 'rgba(' .$rgb. ',' .( intval($c['posbar_opacity']) / 100 ). ')';
-		
-		//playlist
-		$rgb = $this->hexToRGB( $c['playlist_colour'], true );
-		$c['playlist_colour'] = ( $c['playlist_opacity'] >= '100' ) ? 'rgb(' .$rgb. ')' : 'rgba(' .$rgb. ',' .( intval($c['playlist_opacity']) / 100 ). ')';
-	
-		return $c;
-	}
-
-
-	
-//~~~~~
+	//~~
 	function hexToRGB ( $hexStr, $returnAsString = false, $seperator = ',' )
 	{
 		$hexStr = preg_replace( "/[^0-9A-Fa-f]/", '', $hexStr ); // Gets a proper hex string
@@ -1962,40 +1403,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $returnAsString ? implode($seperator, $rgbArray) : $rgbArray; // returns the rgb string or the associative array
 	}
 
-	
-	
-//~~~~~
-	function mp3j_admin_header ()
-	{
-		wp_enqueue_style('mp3jp-settings-css', $this->PluginFolder .'/css/admin/admin-settings.css' );
-		wp_enqueue_script('mp3jp-settings-js', $this->PluginFolder .'/js/admin/admin-settings.js' );
-	}
-		
-		
-//~~~~~
-	function mp3j_admin_footer () {}
-	
-	
-//~~~~~
-	function mp3j_admin_colours_header ()
-	{
-		//scripts
-		wp_enqueue_script('jquery');
-		wp_enqueue_script('jquery-ui-core');
-		wp_enqueue_script('jquery-ui-widget'); 		
-		wp_enqueue_script('jquery-ui-mouse');  		
-		wp_enqueue_script('jquery-ui-slider');
-		wp_enqueue_script('jquery-ui-resizable');
-		wp_enqueue_script('mp3jp-colours-js', $this->PluginFolder .'/js/admin/admin-colours.js' );
-		wp_enqueue_script('spectrum-CP-js', $this->PluginFolder .'/js/spectrum/spectrum.js' );
-		
-		//styles
-		wp_enqueue_style('spectrum-CP-css', $this->PluginFolder .'/css/admin/spectrum.css' );
-		wp_enqueue_style('mp3jp-colours-css', $this->PluginFolder .'/css/admin/admin-colours.css' );
-	}
-	
-
-//~~~~~
+	//~~
 	function prep_value ( $field )
 	{	
 		$search = array( "'", '"', '\\' );
@@ -2004,8 +1412,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $option;
 	}
 	
-
-//~~~~~
+	//~~
 	function strip_scripts ( $field )
 	{ 
 		$search = array(
@@ -2017,8 +1424,7 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return $text; 
 	}
 
-
-//~~~~~
+	//~~
 	function prep_path ( $field )
 	{
 		$search = array( "'", '"', ';', '\\' );
@@ -2056,12 +1462,6 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		if ( is_front_page() ) { echo " (Home page)"; }
 		if ( is_archive() ) { echo "\nTemplate: Archive"; }
 		
-		//echo "\nUse tags: ";
-		//if ( $this->theSettings['disable_template_tag'] == "false" ) { 
-		//	echo "Yes\n";
-		//} else { 
-		//	echo "No\n";
-		//}
 		echo $this->dbug['str'] . "\n";
 		echo "\nPlayer count: " . $this->Player_ID;
 		echo "\n\nAdmin Settings:\n"; 
@@ -2082,6 +1482,284 @@ if ( !class_exists("MP3j_Main") ) { class MP3j_Main	{
 		return;	
 	}
 	
-
-}} // close class, close if.
+	//~~
+	function playerDefaultParams ( $shortcode ) {
+		
+		$O = $this->theSettings;
+		
+		$defaults['mp3t'] = array ( 
+			'bold' 			=> 'y',
+			'track' 		=> '',
+			'tracks' 		=> '',
+			'caption' 		=> '',
+			'flip' 			=> $O['flipMP3t'],
+			'title' 		=> '#USE#',
+			'ind' 			=> 'y',
+			'autoplay' 		=> $O['auto_play'],
+			'loop' 			=> $O['playlist_repeat'],
+			'vol' 			=> $O['initial_vol'],
+			'flow' 			=> 'n',
+			'volslider' 	=> $O['volslider_on_singles'],
+			'style' 		=> '',
+			'counterpart' 	=> '',
+			'counterparts' 	=> '',
+			'ids' 			=> '',
+			'fontsize'		=>  $O['font_size_mp3t'],
+			'dload'			=> 'false',
+			'play' 			=> 'Play',
+			'stop' 			=> 'Stop',
+		);
+		
+		$defaults['mp3j'] = array (
+			'bold' 			=> 'y',
+			'track' 		=> '',
+			'tracks' 		=> '',
+			'caption' 		=> '',
+			'flip' 			=> $O['flipMP3j'],
+			'title' 		=> '#USE#',
+			'ind' 			=> 'y',
+			'autoplay' 		=> $O['auto_play'],
+			'loop' 			=> $O['playlist_repeat'],
+			'vol' 			=> $O['initial_vol'],
+			'flow' 			=> 'n',
+			'volslider' 	=> $O['volslider_on_mp3j'],
+			'style' 		=> '',
+			'counterpart'	=> '',
+			'counterparts' 	=> '',
+			'ids' 			=> '',
+			'fontsize'		=> $O['font_size_mp3j'],
+			'dload'			=> 'false',
+		);
+		
+		$defaults['playlist'] = array(
+			'tracks' 		=> '',
+			'track' 		=> '',
+			'captions' 		=> '',
+			'dload' 		=> $O['show_downloadmp3'],
+			'title' 		=> '',
+			'list' 			=> $O['playlist_show'],
+			'pn' 			=> 'y',
+			'width' 		=> '',
+			'pos' 			=> $O['player_float'],
+			'stop' 			=> 'y',
+			'shuffle' 		=> false,
+			'pick' 			=> '',
+			'id' 			=> '',
+			'loop' 			=> $O['playlist_repeat'],
+			'autoplay' 		=> $O['auto_play'],
+			'vol' 			=> $O['initial_vol'],
+			'height' 		=> $O['playerHeight'],
+			'fsort' 		=> 'asc',
+			'style' 		=> '',
+			'images' 		=> 'true',
+			'imglinks' 		=> '',
+			'imagesize' 	=> $O['imageSize'],
+			'ids' 			=> '',
+			'counterparts' 	=> '',
+			'counterpart' 	=> '',
+			'font_size_1'	=> $O['colour_settings']['font_size_1'],
+			'font_size_2'	=> $O['colour_settings']['font_size_2'],
+			'font_family_1'	=> $O['colour_settings']['font_family_1'],
+			'font_family_2'	=> $O['colour_settings']['font_family_2'],
+			'titlealign'	=> $O['colour_settings']['titleAlign'],
+			'titleoffset' 	=> $O['colour_settings']['titleOffset'],
+			'titleoffsetr' 	=> $O['colour_settings']['titleOffsetR'],
+			'titlebold'		=> $O['colour_settings']['titleBold'],
+			'titleitalic' 	=> $O['colour_settings']['titleItalic'],
+			'captionbold' 	=> $O['colour_settings']['captionBold'],
+			'captionitalic' => $O['colour_settings']['captionItalic'],
+			'listbold'		=> $O['colour_settings']['listBold'],
+			'listitalic'	=> $O['colour_settings']['listItalic'],
+			'listalign'		=> $O['colour_settings']['listAlign'],
+			'imagealign' 	=> $O['colour_settings']['imageAlign'],
+			'imgoverflow' 	=> $O['colour_settings']['imgOverflow'],
+			'titletop' 		=> $O['colour_settings']['titleTop'],
+			'titlecol' 		=> '',
+			'fontsize' 		=> '',
+			'pptext' 		=> $O['popout_button_title'],
+		);
+		
+		$defaults['popout'] = array(
+			'tracks' 		=> '',
+			'track' 		=> '',
+			'captions' 		=> '',
+			'dload' 		=> $this->theSettings['show_downloadmp3'],
+			'title' 		=> '',
+			'text' 			=> $this->theSettings['popout_button_title'],
+			'stop' 			=> 'y',
+			'pn' 			=> 'y',
+			'list' 			=> $this->theSettings['playlist_show'],
+			'width' 		=> '',
+			'pos' 			=> $this->theSettings['player_float'],
+			'shuffle' 		=> false,
+			'pick' 			=> '',
+			'id' 			=> '',
+			'loop' 			=> $this->theSettings['playlist_repeat'],
+			'autoplay' 		=> $this->theSettings['auto_play'],
+			'vol' 			=> $this->theSettings['initial_vol'],
+			'height' 		=> $this->theSettings['playerHeight'],
+			'tag' 			=> 'p',
+			'image' 		=> '',
+			'fsort' 		=> 'asc',
+			'style' 		=> '',
+			'images' 		=> 'true',
+			'imagesize' 	=> $O['imageSize'],
+			'imglinks' 		=> '',
+			'ids' 			=> '',
+			'counterparts' 	=> '',
+			'counterpart' 	=> '',
+			'font_size_1'	=> $O['colour_settings']['font_size_1'],
+			'font_size_2'	=> $O['colour_settings']['font_size_2'],
+			'font_family_1'	=> $O['colour_settings']['font_family_1'],
+			'font_family_2'	=> $O['colour_settings']['font_family_2'],
+			'titlealign'	=> $O['colour_settings']['titleAlign'],
+			'titleoffset' 	=> $O['colour_settings']['titleOffset'],
+			'titleoffsetr' 	=> $O['colour_settings']['titleOffsetR'],
+			'titlebold'		=> $O['colour_settings']['titleBold'],
+			'titleitalic' 	=> $O['colour_settings']['titleItalic'],
+			'captionbold' 	=> $O['colour_settings']['captionBold'],
+			'captionitalic' => $O['colour_settings']['captionItalic'],
+			'listbold'		=> $O['colour_settings']['listBold'],
+			'listitalic'	=> $O['colour_settings']['listItalic'],
+			'listalign'		=> $O['colour_settings']['listAlign'],
+			'imagealign' 	=> $O['colour_settings']['imageAlign'],
+			'imgoverflow' 	=> $O['colour_settings']['imgOverflow'],
+			'titletop' 		=> $O['colour_settings']['titleTop'],
+			'titlecol' 		=> '',
+			'fontsize' 		=> ''
+		);
+		
+		return $defaults[ $shortcode ];
+	}
+	
+	//~~
+	function pluginDefaultSettings () {
+		
+		$colour_keys = array(
+			'screen_colour' 	=> 'rgba(0, 0, 0, 0.18)',
+			'loadbar_colour' 	=> 'rgba(49, 49, 49, 0.64)',
+			'posbar_colour' 	=> 'rgba(0, 180, 37, 0.91)',
+			'posbar_tint' 		=> 'soften',
+			'playlist_colour' 	=> 'rgba(167, 167, 167, 0.55)',
+			'playlist_tint' 	=> 'none',
+			'list_divider' 		=> 'none',
+			'screen_text_colour' => '#3d3232', 
+			'list_text_colour' 	=> '#262120',
+			'list_current_colour' => '#11912b',
+			'list_hover_colour' => '#262120',
+			'listBGa_current' 	=> '#d8d8d8',
+			'listBGa_hover' 	=> '#d3d3d3',
+			'font_size_1'			=> '22',
+			'font_size_2'			=> '18',
+			'font_family_1'			=> 'theme',
+			'font_family_2'			=> 'theme',
+			'titleAlign'	=> 'right',
+			'titleOffset' 	=> '36px',
+			'titleOffsetR'	=> '36px',
+			'titleBold'		=> 'true',
+			'titleHide'		=> 'false',
+			'titleItalic'	=> 'false',
+			'titleTop' 		=> '30px',
+			'captionBold'		=> 'false',
+			'captionItalic'		=> 'true',
+			'listBold'		=> 'false',
+			'listItalic'	=> 'false',
+			'listAlign'		=> 'left',
+			'imageAlign'	=> 'left',
+			'imgOverflow' 	=> 'false',
+			'userClasses' 	=> 'nostop flip',
+			'indicator' 	=> 'colour',
+			'adminBG' 			=> '#f6f6f6',
+			'adminCheckerIMG' 	=> 'true',
+			'adminIMG' 			=> MP3J_PLUGIN_URL . '/css/admin/images/test-image.jpg',
+			'adminSizer_w' 		=> '570px',
+			'adminSizer_h' 		=> '395px'
+		);
+		
+		$audioFormats = array(
+			'mp3'  => 'true',
+			'mp4'  => 'true',
+			'ogg'  => 'false',
+			'wav'  => 'false',
+			'webm' => 'false'
+		);
+		
+		$SETTINGS = array( // defaults
+			'initial_vol' 		=> '100',
+			'auto_play' 		=> 'false',
+			'mp3_dir' 			=> '/',
+			'player_theme' 		=> 'defaultDark',
+			'allow_remoteMp3' 	=> 'true',
+			'player_float' 		=> 'none',
+			'player_onblog' 	=> 'true',
+			'playlist_show' 	=> 'true',
+			'remember_settings' => 'true',
+			'hide_mp3extension' => 'true',
+			'show_downloadmp3' 	=> 'false',
+			'db_plugin_version' => $this->version_of_plugin,
+			'custom_stylesheet' => '',
+			'echo_debug' 		=> 'false',
+			'add_track_numbering' => 'false',
+			'enable_popout' 	=> 'true',
+			'playlist_repeat' 	=> 'false',
+			'player_width' 		=> '100%',
+			'popout_background' => '#f0f0f0',
+			'popout_background_image' => '',
+			'colour_settings' 	=> $colour_keys,
+			'paddings_top' 		=> '5px',
+			'paddings_bottom' 	=> '30px',
+			'paddings_inner' 	=> '30px',
+			'popout_max_height' => '600',
+			'popout_width' 		=> '400',
+			'popout_button_title' => '',
+			'max_list_height' 	=> '450',
+			'encode_files' 		=> 'true',
+			'library_sortcol' 	=> 'file',
+			'library_direction' => 'ASC',
+			'disable_jquery_libs' => '',
+			'run_shcode_in_excerpt' => 'false',
+			'f_separator' 			=> ',',
+			'c_separator' 			=> ';',
+			'volslider_on_singles' 			=> 'false',
+			'volslider_on_mp3j' 			=> 'false',
+			'dload_text' 					=> '',
+			'loggedout_dload_text' 			=> 'Log in to download',
+			'loggedout_dload_link' 			=> $this->WPinstallpath . '/wp-login.php',
+			'force_browser_dload' 			=> 'true',
+			'dloader_remote_path' 			=> '',
+			'make_player_from_link' 		=> 'true',
+			'make_player_from_link_shcode' 	=> '[mp3j track="{TEXT}@{URL}" volslider="y"]',
+			'audioFormats' 					=> $audioFormats,
+			'replace_WP_playlist' 			=> 'true',
+			'replace_WP_audio' 				=> 'true',
+			'replace_WP_embedded' 			=> 'true',
+			'replace_WP_attached' 			=> 'true',
+			'replacerShortcode_playlist' 	=> 'player',
+			'replacerShortcode_single' 		=> 'mp3j',
+			'imageSize' 			=> 'autoH',
+			'folderFeedSortcol' 	=> 'file',
+			'folderFeedDirection' 	=> 'ASC',
+			'autoCounterpart' 		=> 'true',
+			'allowRangeRequests' 	=> 'true',
+			'playerHeight' 			=> '120px',
+			'font_size_mp3t' 		=> '18px',
+			'font_size_mp3j' 		=> '18px',
+			'showErrors'			=> 'admin',
+			'flipMP3t'				=> 'false',
+			'flipMP3j'				=> 'true',
+			'mp3tColour'			=> '#00869b',
+			'mp3tColour_on'			=> 'false',
+			'mp3jColour'			=> '#404040',
+			'mp3jColour_on'			=> 'false',
+			'playerTitle1'			=> 'titles',
+			'playerTitle2'			=> 'artist',
+			'hasListMeta'			=> 'false',
+			'autoResume'			=> 'true',
+			'can_view_players'		=> 'all',
+		);
+		
+		return $SETTINGS;
+	}
+	
+} //end class
 ?>

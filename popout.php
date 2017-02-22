@@ -9,7 +9,7 @@
 		MP3-jPlayer
 		http://mp3-jplayer.com
 		--->
-			
+		
 		<script type='text/javascript' src='js/popout/jquery.js'></script>
 		<script type='text/javascript' src='js/popout/core.min.js'></script>
 		<script type='text/javascript' src='js/popout/widget.min.js'></script>
@@ -17,7 +17,7 @@
 		<script type='text/javascript' src='js/popout/slider.min.js'></script>
 		<script type='text/javascript' src='js/wp-backwards-compat/jquery.ui.touch-punch.min.js'></script>
 		<script type='text/javascript' src='js/jquery.jplayer.min.2.7.1.js'></script>
-		<script type='text/javascript' src='js/mp3-jplayer-2.3.2.js'></script>
+		<script type='text/javascript' src='js/mp3-jplayer-2.7.js'></script>
 				
 		<script type='text/javascript'>
 		function loadcss(filename) {
@@ -33,7 +33,7 @@
 		function getParentInfo ( j ) {
 			jQuery.getScript( window.opener.MP3_JPLAYER.extJS[ j ].loc, function(){} );
 		};
-		
+	
 		if( window.opener && !window.opener.closed && window.opener.MP3_JPLAYER && window.opener.MP3_JPLAYER.launched_ID !== null ) {
 			
 			if ( typeof window.opener.MP3_JPLAYER.vars.stylesheet_url !== 'undefined' ) {
@@ -46,7 +46,8 @@
 			MP3_JPLAYER.vars.dload_text = window.opener.MP3_JPLAYER.vars.dload_text;
 			MP3_JPLAYER.vars.force_dload = window.opener.MP3_JPLAYER.vars.force_dload;
 			MP3_JPLAYER.vars.dl_remote_path = window.opener.MP3_JPLAYER.vars.dl_remote_path;
-			
+			MP3_JPLAYER.pickup = window.opener.MP3_JPLAYER.pickup;
+						
 			var pl_info_wo = window.opener.MP3_JPLAYER.pl_info; //copy
 			var auto_play = ( typeof window.opener.MP3_JPLAYER.was_playing !== 'undefined' && window.opener.MP3_JPLAYER.was_playing === true ) ? true : pl_info_wo[MP3_JPLAYER.launched_ID].autoplay;
 			window.opener.MP3_JPLAYER.was_playing = false;
@@ -68,8 +69,10 @@
 				popout_css:	pl_info_wo[MP3_JPLAYER.launched_ID].popout_css
 			}];
 			
-			var p = MP3_JPLAYER.pl_info[0];
-			MP3_JPLAYER.lastformats = window.opener.MP3_JPLAYER.lastformats;
+			if ( ! MP3_JPLAYER.pickup ) {
+				MP3_JPLAYER.lastformats = window.opener.MP3_JPLAYER.popoutformats;
+			}
+			
 			MP3_JPLAYER.vars.pp_playerheight = window.opener.MP3_JPLAYER.vars.pp_playerheight;
 			MP3_JPLAYER.vars.pp_windowheight = window.opener.MP3_JPLAYER.vars.pp_windowheight;
 			
@@ -78,6 +81,7 @@
 			
 			MP3_JPLAYER.exThresh = window.opener.MP3_JPLAYER.exThresh;
 			MP3_JPLAYER.showErrors = window.opener.MP3_JPLAYER.showErrors;
+			MP3_JPLAYER.hasListMeta = window.opener.MP3_JPLAYER.hasListMeta;
 			
 			if ( typeof window.opener.statsMJPajax !== 'undefined' ) {
 				var wos = window.opener.statsMJPajax;
@@ -89,10 +93,9 @@
 			}
 		}
 
-		
 		jQuery(document).ready(function () {
+		
 			if( window.opener && !window.opener.closed && window.opener.MP3_JPLAYER && window.opener.MP3_JPLAYER.launched_ID !== null ) { 
-				
 				var j;
 				var l = window.opener.MP3_JPLAYER.extJS.length;
 				if ( l > 0 ) {
@@ -100,7 +103,6 @@
 						getParentInfo( j );
 					}
 				}
-	
 				if ( MP3_JPLAYER.skinJS !== '' ) {
 					jQuery.getScript( MP3_JPLAYER.skinJS, function () {
 						MJP_SKINS_INIT();
@@ -197,7 +199,6 @@
 			<div style="display:none;" class="Ebelow-mjp"></div>
 		</div>
 
-		
 		<script type="text/javascript">
 		if( window.opener && ! window.opener.closed ) {				
 			

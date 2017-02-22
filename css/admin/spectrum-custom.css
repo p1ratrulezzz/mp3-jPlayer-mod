@@ -527,3 +527,15 @@ See http://bgrins.github.io/spectrum/themes/ for instructions.
 	top:0px;
 }
 
+
+
+.sp-clear-enabled .sp-clear {
+	left: 90%;
+	height: 20px;
+}
+.sp-clear-enabled .sp-hue {
+    top: 26px;
+    height: 83%;
+}
+
+
