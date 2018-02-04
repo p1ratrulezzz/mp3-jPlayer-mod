@@ -1610,6 +1610,9 @@ class MP3j_Main	{
 
 		$O = $this->theSettings;
 
+		// Check if autoplay was excplicitly set in params.
+		$O['auto_play'] = !empty($_GET['autplay']) ? $_GET['autplay'] : $O['auto_play'];
+		
 		$defaults['mp3t'] = array (
 			'bold' 			=> 'y',
 			'track' 		=> '',
