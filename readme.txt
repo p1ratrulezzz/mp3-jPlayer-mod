@@ -6,8 +6,8 @@ Donate link: http://www.sjward.org/jplayer-for-wordpress
 Tags: audio, playlist, player, music, audio player, audio playlist, mp3 player, music player, media, mobile, iphone, ipad, integration, multisite, playlist player, media player, audio widget, audio download, html5 audio, music player, mp3, html5, flash, jplayer, jquery, shortcode, widget, css, post, page, sidebar, html 5
 License: GPLv2 or later
 Requires at least: 2.9
-Tested up to: 4.6
-Stable tag: 2.7.2
+Tested up to: 5.0.3
+Stable tag: 2.7.3
 
 Easy, Flexible Audio for WordPress.
 
@@ -31,7 +31,7 @@ Easy, Flexible Audio for WordPress.
 [Help & Docs main page](http://mp3-jplayer.com/help-docs/)
 
 
-MP3-jPlayer will expand WP's native shortcodes with new functions and options, giving you a lot of choice in how to set up your music playlists. Here's a few of the features:
+MP3-jPlayer expands WP's native shortcodes with new functions and options, giving you a lot of choice in how to set up your music playlists. Here's a few of the features:
 
 * Add unlimited music players to pages, posts, sidebars, and template files.
 * Show the players to all visitors, or just logged-in users.
@@ -118,6 +118,9 @@ Either on the [forum at Wordpress](https://wordpress.org/support/plugin/mp3-jpla
 
 
 == Changelog ==
+
+= 2.7.3 =
+* Fixed the error message admin-side that occured in some scenarios when saving posts containing player shortcodes.
 
 = 2.7.2 =
 * Fixed the background colour fill on playlist items when displaying stat counts on the frontend.

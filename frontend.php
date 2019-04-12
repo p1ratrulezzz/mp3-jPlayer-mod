@@ -522,7 +522,6 @@ class MP3j_Front extends MP3j_Main
 		$loop = ( $loop == "true" || $loop == "y" || $loop == "1" ) ? "true" : "false";
 		$dload = ( $dload == "true" || $dload == "y" || $dload == "1" ) ? "true" : "false";
 		
-		$this->defineJSvars();
 		$playerInfo = "{ list: MP3jPLAYLISTS." . $tn['playername'] . ", tr: " . ($tn['track']-1) . ", type: 'single', lstate: '', loop: " . $loop . ", play_txt: '" . $play . "', pause_txt: '" . $stop . "', pp_title: '', autoplay:" . $autoplay . ", download:" . $dload . ", vol: " . $vol . ", height: '' }";
 		$playerJS = "<script>MP3jPLAYERS[" .$id. "] = " . $playerInfo . ";</script>";
 		
@@ -612,7 +611,6 @@ class MP3j_Front extends MP3j_Main
 		$loop = ( $loop == "true" || $loop == "y" || $loop == "1" ) ? "true" : "false";
 		$dload = ( $dload == "true" || $dload == "y" || $dload == "1" ) ? "true" : "false";
 		
-		$this->defineJSvars();
 		$playerInfo = "{ list: MP3jPLAYLISTS." . $tn['playername'] . ", tr:" . ($tn['track']-1) . ", type:'single', lstate:'', loop:" . $loop . ", play_txt:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', pause_txt:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', pp_title:'', autoplay:" . $autoplay . ", download:" . $dload . ", vol:" . $vol . ", height:'' }";
 		$playerJS = "<script>MP3jPLAYERS[" .$id. "] = " . $playerInfo . ";</script>";
 		

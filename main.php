@@ -2,7 +2,7 @@
 class MP3j_Main	{
 	
 	// --------- Update Me ------------
-	var $version_of_plugin = "2.7.2"; 
+	var $version_of_plugin = "2.7.3"; 
 	// --------------------------------
 	
 	var $S_no 			= 0;
@@ -665,7 +665,6 @@ class MP3j_Main	{
 		}
 		$js .= "\n]";
 		
-		$this->defineJSvars();
 		return "<script>\nMP3jPLAYLISTS." .$name. " = " .$js. ";\n</script>\n\n";
 	}
 
