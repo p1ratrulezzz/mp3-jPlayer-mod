@@ -3,7 +3,7 @@
 Plugin Name: MP3-jPlayer
 Plugin URI: http://mp3-jplayer.com
 Description: Easy, Flexible Audio for WordPress. 
-Version: 2.7.2
+Version: 2.7.3
 Author: Simon Ward
 Author URI: http://www.sjward.org
 License: GPL2

@@ -2,7 +2,8 @@
 class MP3j_Main	{
 
 	// --------- Update Me ------------
-	var $version_of_plugin = "2.7.2";
+	var $version_of_plugin = "2.7.3"; 
+  
 	// --------------------------------
 
 	var $S_no 			= 0;
