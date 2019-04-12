@@ -8,12 +8,12 @@
 
 
 //~~~ Flag
-function checkCharsOK ( $string ) 
-{	
+function checkCharsOK ( $string )
+{
 	$badChars = 0;
 	$charArray = str_split( $string );
-	
-	if ( is_array( $charArray ) ) {	
+
+	if ( is_array( $charArray ) ) {
 		foreach ( $charArray as $char ) {
 			$ascii = ord( $char );
 			if ( 0 === $ascii ) { //null bytes
@@ -28,17 +28,17 @@ function checkCharsOK ( $string )
 
 
 //~~~ Clean
-function stripScripts ( $field ) 
-{ 
+function stripScripts ( $field )
+{
 	$search = array(
-		'@<script[^>]*?>.*?</script>@si',	// Javascript 
-		'@<style[^>]*?>.*?</style>@siU',    // Style tags 
+		'@<script[^>]*?>.*?</script>@si',	// Javascript
+		'@<style[^>]*?>.*?</style>@siU',    // Style tags
 		'@<![\s\S]*?--[ \t\n\r]*>@',        // Multi-line comments including CDATA
 		'@%00@',							// Null bytes
 		'@\.\.@'							// Traversals
-	); 
-	$text = preg_replace( $search, '', $field ); 
-	return $text; 
+	);
+	$text = preg_replace( $search, '', $field );
+	return $text;
 }
 
 
@@ -55,8 +55,8 @@ $rooturl 	= preg_replace("/^www\./i", "", $_SERVER['HTTP_HOST']);
 
 
 if ( isset($_GET['mp3']) ) {
-	
-	
+
+
 	// Clean the url/path
 	$mp3 	= strip_tags($_GET['mp3']);
 	$mp3 	= rawurldecode( $mp3 );
@@ -65,8 +65,8 @@ if ( isset($_GET['mp3']) ) {
 	if ( ! checkCharsOK( $sent ) ) {
 		die();
 	}
-	
-	
+
+
 	// Clean player ID
 	$playerID = ( isset($_GET['pID']) ) ? strip_tags($_GET['pID']) : "";
 	$playerID = stripScripts( $playerID );
@@ -74,54 +74,81 @@ if ( isset($_GET['mp3']) ) {
 	if ( $playerID == '' ) {
 		die();
 	}
-		
-	
+
+
 	// Check it's a valid file type
 	$matches = array();
-	if ( preg_match("!\.(mp3|mp4|m4a|ogg|oga|wav|webm)$!i", $mp3, $matches) ) 
+	if ( preg_match("!\.(mp3|mp4|m4a|ogg|oga|wav|webm)$!i", $mp3, $matches) )
 	{
-		
+
 		// Decide the mime type
-		$fileExtension = $matches[0];
+		$fileExtension = strtolower($matches[0]);
 		if ( $fileExtension === 'mp3' || $fileExtension === 'mp4' || $fileExtension === 'm4a' ) {
 			$mimeType = 'audio/mpeg';
 		} elseif( $fileExtension === 'ogg' || $fileExtension === 'oga' ) {
 			$mimeType = 'audio/ogg';
+		} elseif ( $fileExtension == 'wav' || $fileExtension == 'wave' )  {
+			$mimeType = 'audio/vnd.wave';
 		} else {
 			$mimeType = 'audio/' . ( str_replace('.', '', $fileExtension) );
 		}
-		
-		
+
+
 		// Get the file's name
 		$file = substr( strrchr( $sent, "/" ), 1 );
-		
-		
+
+		if (strpos($sent, $rooturl. '/music-proxy/') !== false) { // if used proxy
+			// @fixme: Ugly fix
+			set_time_limit(2 * 60 * 60); // Limit with 2 hours to be sure that we will wait our file to be downloaded
+			$destination =  tempnam(sys_get_temp_dir(), 'mp3jpl');
+			$fp = fopen ($destination, 'w+');
+			$ch = curl_init();
+			curl_setopt( $ch, CURLOPT_URL, $sent );
+			curl_setopt( $ch, CURLOPT_BINARYTRANSFER, true );
+			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, false );
+			curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false );
+			curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 12 );
+			curl_setopt( $ch, CURLOPT_FILE, $fp );
+			curl_exec( $ch );
+			curl_close( $ch );
+			fclose( $fp );
+
+			header('Content-Type: ' . $mimeType);
+			$cookiename = 'mp3Download' . $playerID;
+			setcookie($cookiename, "true", 0, '/');
+			header('Accept-Ranges: bytes');  // download resume
+			header('Content-Disposition: attachment; filename=' . $file);
+			header('Content-Length: ' . @filesize($destination));
+			readfile($destination);
+			$dbug .= '#problemremote';
+			// @fixme: /Ugly fix
+		}
 		// Check that the file is locally hosted
-		if ( ($lp = strpos($sent, $rooturl)) || preg_match("!^/!", $sent) ) 
-		{ 
-			if ( $lp !== false ) { 					
+		elseif ( ($lp = strpos($sent, $rooturl)) || preg_match("!^/!", $sent) )
+		{
+			if ( $lp !== false ) {
 				// It's url format, prep as path
 				$fp = str_replace($rooturl, "", $sent);
 				$fp = str_replace("www.", "", $fp);
 				$fp = str_replace("http://", "", $fp);
 				$fp = str_replace("https://", "", $fp);
-			} else { 
+			} else {
 				// It's a path already
 				$fp = $sent;
 			}
-			
-			
+
+
 			// Bail if path to the file is not valid
 			$realPath = realpath( $_SERVER['DOCUMENT_ROOT'] . $fp );
 			if ( $realPath === false ) {
 				die();
-			} 
-			
+			}
+
 
 			// Try to send file
 			$fsize = @filesize( $realPath );
-			if ( $fsize !== false ) { 
-				
+			if ( $fsize !== false ) {
+
 				//set headers and cookie
 				header('Content-Type: ' . $mimeType);
 				$cookiename = 'mp3Download' . $playerID;
@@ -129,23 +156,23 @@ if ( isset($_GET['mp3']) ) {
 				header('Accept-Ranges: bytes');  // download resume
 				header('Content-Disposition: attachment; filename=' . $file);
 				header('Content-Length: ' . $fsize);
-				
+
 				//Send the file
 				readfile( $realPath );
-				
+
 				//If past readfile() then something went wrong
-				$dbug .= "#read failed"; 
-				
+				$dbug .= "#read failed";
+
 			} else {
-			
+
 				$dbug .= "#no file";
 			}
-				
+
 		} else {
-			
-			$dbug .= "#unreadable"; 
+
+			$dbug .= "#unreadable";
 		}
-	
+
 	} else {
 
 		$dbug .= "#unsupported format";
@@ -163,16 +190,16 @@ if ( isset($_GET['mp3']) ) {
 		<title>Download Audio</title>
 	</head>
 	<body>
-		<?php 
-		if ( $playerID != "" ) { 
-		?>	
+		<?php
+		if ( $playerID != "" ) {
+		?>
 			<script type="text/javascript">
 				if ( typeof window.parent.MP3_JPLAYER.dl_dialogs !== 'undefined' ) {
 					window.parent.MP3_JPLAYER.dl_dialogs[<?php echo $playerID; ?>] = window.parent.MP3_JPLAYER.vars.message_fail;
 				}
 			</script>
-		<?php 
-		} 
+		<?php
+		}
 		?>
 	</body>
 </html>
