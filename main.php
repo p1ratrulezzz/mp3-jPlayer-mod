@@ -230,6 +230,9 @@ class MP3j_Main	{
 		if ( 'true' === $formats['wav'] ) {
 			$allowedFeedMimes[] = 'audio/wav';
 		}
+		if ( 'true' === $formats['flac'] ) {
+			$allowedFeedMimes[] = 'audio/flac';
+		}
 		if ( 'true' === $formats['webm'] ) {
 			$allowedFeedMimes[] = 'audio/webm';
 		}
@@ -288,7 +291,7 @@ class MP3j_Main	{
 		}
 
 		global $wpdb;
-		$MIMES = ( $mimeTypes !== '' ) ? $mimeTypes : "post_mime_type = 'audio/mpeg' OR post_mime_type = 'audio/ogg' OR post_mime_type = 'audio/wav' OR post_mime_type = 'audio/webm'";
+		$MIMES = ( $mimeTypes !== '' ) ? $mimeTypes : "post_mime_type = 'audio/mpeg' OR post_mime_type = 'audio/ogg' OR post_mime_type = 'audio/flac' OR post_mime_type = 'audio/wav' OR post_mime_type = 'audio/webm'";
 		$audio = $wpdb->get_results("SELECT * FROM $wpdb->posts WHERE " . $MIMES . $order);
 
 		if ( !empty($audio) )
@@ -360,6 +363,7 @@ class MP3j_Main	{
 			'webm' => 'false',
 			'aac' => 'true',
 			'm4a' => 'true',
+			"flac" => 'true',
 		);
 	}
 
@@ -442,7 +446,7 @@ class MP3j_Main	{
 		$items = array();
 		$filenames = array();
 		$modTimes = array();
-		$extensions = ( $extensions === "" ) ? "mp3|m4a|mp4|oga|ogg|wav|webm|webma" : $extensions;
+		$extensions = ( $extensions === "" ) ? "mp3|m4a|mp4|oga|ogg|wav|flac|webm|webma" : $extensions;
 		$fp = $folder;
 
 		if ( ($isLocal = strpos($folder, $this->Rooturl)) || preg_match("!^/!", $folder) )
@@ -554,7 +558,7 @@ class MP3j_Main	{
 			elseif ( $format == 'webm' || $format == 'webma' ) {
 				$format = 'webma';
 			}
-			elseif ( ! in_array($format, array('m4a', 'oga', 'wav')) ) { //remaining type is mp3, make sure it's set to this anyhow even if unrecognised.
+			elseif ( ! in_array($format, array('m4a', 'oga', 'wav', 'flac')) ) { //remaining type is mp3, make sure it's set to this anyhow even if unrecognised.
 				$format = 'mp3';
 			}
 		}
@@ -675,12 +679,12 @@ class MP3j_Main	{
 				}
 				if ( $track['counterpart'] === '' &&  $this->theSettings['autoCounterpart'] === 'true' ) {
 					$path = strrev( strstr( strrev($track['src']), '/' ) );
-					$folderCparts = $this->grabFolderURLs( $path, 'oga|ogg|wav|webm|webma' );
+					$folderCparts = $this->grabFolderURLs( $path, 'oga|ogg|wav|flac|webm|webma' );
 					$track = $this->getFEEDCounterpart( $track, $folderCparts );
 				}
 			}
 			if ( $track['title'] === '' ) {
-				$track['title'] = ( $this->theSettings['hide_mp3extension'] == "true" ) ? preg_replace( '/\.(mp3|mp4|m4a|ogg|oga|wav|webm)$/i', "", $track['filename'] ) : $track['filename'];
+				$track['title'] = ( $this->theSettings['hide_mp3extension'] == "true" ) ? preg_replace( '/\.(mp3|mp4|m4a|ogg|oga|wav|flac|webm)$/i', "", $track['filename'] ) : $track['filename'];
 			}
 		}
 
@@ -948,7 +952,7 @@ class MP3j_Main	{
 		}
 
 		$haystack = $LIB['filenames'];
-		$tries = array( 'oga', 'ogg', 'webma', 'webm', 'wav' ); //prioritised extensions
+		$tries = array( 'oga', 'ogg', 'webma', 'webm', 'wav', 'flac'); //prioritised extensions
 		foreach ( $tries as $try ) {
 			$needle = $fParts[0] . '.' . $try;
 			$match = array_keys( $haystack, $needle );
@@ -1035,7 +1039,7 @@ class MP3j_Main	{
 			$folder = ( $track['src'] == "DF" ) ? $this->theSettings['mp3_dir'] : $track['src'];
 
 			$folderInfo = $this->grabFolderURLs( $folder, $this->formatsFeedRegex ); //grab ticked
-			$folderCparts = ( $this->theSettings['autoCounterpart'] === 'true' ) ? $this->grabFolderURLs( $folder, 'oga|ogg|wav|webm|webma' ) : false;
+			$folderCparts = ( $this->theSettings['autoCounterpart'] === 'true' ) ? $this->grabFolderURLs( $folder, 'oga|ogg|wav|flac|webm|webma' ) : false;
 			$tracks = $folderInfo['files'];
 			if ( $tracks !== true && $tracks !== false && count( $tracks ) > 0 ) {
 				foreach ( $tracks as $j => $file ) {
@@ -1158,7 +1162,7 @@ class MP3j_Main	{
 		}
 		$needles = array( '\"', '{TEXT}', '{URL}' );
 		$replacers = array( '"', '$6', '$2' );
-		$remove = "/<a ([^=]+=['\"][^\"']+['\"] )*href=['\"](([^\"']+(\.mp3|\.m4a|\.oga|\.ogg|\.wav|\.webm)))['\"]( [^=]+=['\"][^\"']+['\"])*>([^<]+)<\/a>/i";
+		$remove = "/<a ([^=]+=['\"][^\"']+['\"] )*href=['\"](([^\"']+(\.mp3|\.m4a|\.oga|\.ogg|\.wav|\.flac|\.webm)))['\"]( [^=]+=['\"][^\"']+['\"])*>([^<]+)<\/a>/i";
 		$add = str_replace($needles, $replacers, $this->theSettings['make_player_from_link_shcode'] );
 
 		return preg_replace( $remove, $add, $stuff );
@@ -1611,7 +1615,15 @@ class MP3j_Main	{
 		$O = $this->theSettings;
 
 		// Check if autoplay was excplicitly set in params.
-		$O['auto_play'] = !empty($_GET['autplay']) ? $_GET['autplay'] : $O['auto_play'];
+		if (!empty($_GET['autoplay']) && NULL !== ($autoplay = $_GET['autoplay'])) {
+			switch ($autoplay) {
+				case 'y':
+				case 'true':
+				case 'yes':
+					$O['auto_play'] = 'y';
+					break;
+			}
+		}
 		
 		$defaults['mp3t'] = array (
 			'bold' 			=> 'y',
